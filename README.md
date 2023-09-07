@@ -2,7 +2,7 @@
 
 [![Swift Version][swift-image]][swift-url]
 [![License][license-image]][license-url]
-![tag](https://img.shields.io/github/v/tag/LLCFreedom-Space/dxprotocol.git)
+[![GitHub release](https://img.shields.io/github/release/Naereen/StrapDown.js.svg)](https://github.com/LLCFreedom-Space/dxprotocol.git/releases/)
 
 The DXProtocol is a library for encrypting text messages. The DXProtocol provides end-to-end encryption for voice and instant messaging conversations. This protocol is based on the Double Ratchet algorithm and the "Extended Triple Diffie-Hellman" key agreement protocol.
 
