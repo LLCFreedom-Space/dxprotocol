@@ -14,7 +14,7 @@ Once you have your Swift package set up, adding DXProtocol as a dependency is as
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/LLCFreedom-Space/dxprotocol.git", branch: "main")
+    .package(url: "https://github.com/LLCFreedom-Space/dxprotocol.git", from: "1.0.0")
 ]
 ```
 
