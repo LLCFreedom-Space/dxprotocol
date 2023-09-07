@@ -1,0 +1,238 @@
+disabled_rules: # rule identifiers to exclude from running
+    - discarded_notification_center_observer
+    - notification_center_detachment
+    - orphaned_doc_comment
+    - todo
+    - unused_capture_list
+    - trailing_whitespace
+opt_in_rules: # some rules are only opt-in
+    - array_init
+    # Prefer using Array(seq) over seq.map { $0 } to convert a sequence into an Array.
+    - attributes
+    - closure_end_indentation
+    # Closure end should have the same indentation as the line that started it.
+    - closure_spacing
+    # Closure expressions should have a single space inside each brace.
+    - collection_alignment
+    # All elements in a collection literal should be vertically aligned
+    - colon
+    # Colons should be next to the identifier when specifying a type and next to the key in dictionary literals.
+    - comma
+    # There should be no space before and one after any comma.
+    - compiler_protocol_init
+    # The initializers declared in compiler protocols such as ExpressibleByArrayLiteral shouldn't be called directly.
+    - conditional_returns_on_newline
+    # Conditional statements should always return on the next line
+    - control_statement
+    # if, for, guard, switch, while, and catch statements shouldn't unnecessarily wrap their conditionals or arguments in parentheses.
+    - convenience_type
+    # Types used for hosting only static members should be implemented as a caseless enum to avoid instantiation.
+    - cyclomatic_complexity
+    # Complexity of function bodies should be limited.
+    - empty_collection_literal
+    # Prefer checking isEmpty over comparing collection to an empty array or dictionary literal.
+    - empty_count
+    # Prefer checking `isEmpty` over comparing `count` to zero.
+    - empty_string
+    # Prefer checking `isEmpty` over comparing string to an empty string literal.
+    - enum_case_associated_values_count
+    # Number of associated values in an enum case should be low
+    - empty_enum_arguments
+    - fatal_error_message
+    # A fatalError call should have a message.
+    - first_where
+    # Prefer using ``.first(where:)`` over ``.filter { }.first` in collections.
+    - force_unwrapping
+    # Force unwrapping should be avoided.
+    - implicitly_unwrapped_optional
+    # Implicitly unwrapped optionals should be avoided when possible.
+    - last_where
+    # Prefer using .last(where:) over .filter { }.last in collections.
+    - legacy_random
+    # Prefer using type.random(in:) over legacy functions.
+    - literal_expression_end_indentation
+    # Array and dictionary literal end should have the same indentation as the line that started it.
+    - multiline_arguments
+    # Arguments should be either on the same line, or one per line.
+    - multiline_function_chains
+    # Chained function calls should be either on the same line, or one per line.
+    - multiline_literal_brackets
+    # Multiline literals should have their surrounding brackets in a new line.
+    - multiline_parameters
+    # Functions and methods parameters should be either on the same line, or one per line.
+    - operator_usage_whitespace
+    # Operators should be surrounded by a single whitespace when they are being used.
+    - overridden_super_call
+    - pattern_matching_keywords
+    # Combine multiple pattern matching bindings by moving keywords out of tuples.
+    - prefer_self_type_over_type_of_self
+    # Prefer Self to type(of: self) when accessing properties or calling methods.
+    - redundant_nil_coalescing
+    # nil coalescing operator is only evaluated if the lhs is nil, coalescing operator with nil as rhs is redundant
+    - redundant_type_annotation
+    # Variables should not have redundant type annotation
+    - redundant_discardable_let
+    - strict_fileprivate
+    - toggle_bool
+    # Prefer someBool.toggle() over someBool = !someBool.
+    - trailing_closure
+    # Trailing closure syntax should be used whenever possible.
+    - trailing_newline
+    # Files should have a single trailing newline.
+    - todo
+    - unneeded_parentheses_in_closure_argument
+    # Parentheses are not needed when declaring closure arguments.
+    - vertical_whitespace_closing_braces
+    # Don’t include vertical whitespace (empty line) before closing braces.
+    - vertical_whitespace_opening_braces
+    # Don’t include vertical whitespace (empty line) after opening braces.
+    # - weak_delegate
+    # Delegates should be weak to avoid reference cycles.
+    - missing_docs
+included: # paths to include during linting. `--path` is ignored if present.
+
+excluded: # paths to ignore during linting. Takes precedence over `included`.
+    - ${PWD}/Carthage
+    - ${PWD}/Pods
+    - ${PWD}/DerivedData
+    - .build
+    - .swiftpm
+    - Sources/DXProtocol/Messages/Protobuf
+    - Package.swift
+# configurable rules can be customized from this configuration file
+custom_rules:
+    naming_singletons:
+        included: ".*\\.swift"
+        name: "Singleton naming"
+        regex: "static (var|let)[ ](instance|sharedInstance)[ ]*[:]"
+        message: "Use shared"
+        severity: error
+    
+    no_print:
+        included: ".*\\.swift"
+        name: "Forbidden print"
+        regex: "print[(]"
+        message: "Use DevTools.Log..."
+        severity: warning
+    
+    no_hard_coded_time_zones:
+        included: ".*\\.swift"
+        name: "Forbidden hardcoded TimeZones"
+        regex: "\"UTC\"|\"GMT\""
+        message: "Use AppConstants.TimeZones..."
+        severity: error
+    
+    numbers_smell:
+        regex: '(return |case |\w\(|: |\?\? |\, |== |<=? |>=? |\+= |\-= |\/= |\*= |%= |\w\.\w+ = )\(*-?\d{2,}'
+        message: "Numbers smell; define a constant instead."
+        severity: warning
+
+#    multiline_commented_code:
+    #       regex: '^\s*[a-z]'
+    #       match_kinds: comment
+    #       message: "Comment starting with lowercase letter - did you forget to delete old code?"
+    #       severity: warning
+    
+    # commented_code:
+        # regex: '(?<!:|\/)\/\/\h*[a-z.](?!swiftlint)'
+        # message: "Comment starting with lowercase letter - did you forget to delete old code?"
+        # severity: warning
+
+# binary rules can set their severity level
+attributes:
+    always_on_same_line:
+    - "@IBSegueAction"
+    - "@IBAction"
+    - "@NSManaged"
+    - "@objc"
+    - "@State"
+    - "@ObservedObject"
+    - "@EnvironmentObject"
+    - "@StateObject"
+    - "@Published"
+    - "@discardableResult"
+force_cast: warning # implicitly. Give warning only for force casting
+
+force_try:
+    severity: error # explicitly. Give warning only for force try
+
+legacy_hashing: error
+# implicitly
+large_tuple: # Tuples shouldn't have too many members. Create a custom type instead.
+    warning: 16
+    error: 18
+
+line_length:
+    warning: 150
+    error: 200
+    ignores_urls: true
+    ignores_function_declarations: false
+    ignores_comments: true
+    ignores_interpolated_strings: true # default: false
+
+multiline_arguments:
+    first_argument_location: next_line
+    only_enforce_after_first_closure_on_first_line: true
+
+private_over_fileprivate:
+    validate_extensions: true
+
+redundant_string_enum_value:
+    severity: error
+
+statement_position:
+    severity: error
+
+unused_closure_parameter:
+    severity: error
+
+return_arrow_whitespace:
+    severity: error
+
+vertical_whitespace:
+    max_empty_lines: 2
+
+type_body_length:
+    warning: 300
+    error: 400
+
+# or they can set both explicitly
+file_length:
+    warning: 400
+    error: 500
+
+function_body_length: # Functions bodies should not span too many lines.
+    warning: 60
+    error: 70
+
+function_parameter_count: # Number of function parameters should be low.
+    warning: 6
+    error: 6
+
+nesting: # Types should be nested at most 2 level deep, and statements should be nested at most 5 levels deep.
+    type_level:
+        warning: 2 # warning - default: 1
+    function_level:
+        warning: 5 # warning - default: 5
+
+identifier_name:
+    excluded:
+    - i
+    - id
+    - x
+    - y
+    - z
+    - ok
+    - or
+    - ID
+# naming rules can set warnings/errors for min_length and max_length
+# additionally they can set excluded names
+type_name:
+    warning: 40
+    error: 45
+    excluded: iPhone # excluded via string
+    
+analyzer_rules:
+    - unused_import
+    # All imported modules should be required to make the file compile.
+reporter: "xcode"

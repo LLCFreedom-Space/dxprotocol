@@ -1,0 +1,24 @@
+syntax = "proto2";
+
+//
+//  Messages.proto
+//  DealogX
+//
+//  Created by Andriy Vasyk on 14.12.2022.
+//
+
+message SecureMessageProto {
+  optional bytes  ratchetKey       = 1;
+  optional uint32 counter          = 2;
+  optional uint32 previousCounter  = 3;
+  optional bytes  ciphertext       = 4;
+}
+
+message PreKeySecureMessageProto {
+  optional string registrationId   = 5;
+  optional string oneTimePreKeyId  = 1;
+  optional string signedPreKeyId   = 6;
+  optional bytes  baseKey          = 2;
+  optional bytes  identityKey      = 3;
+  optional bytes  message          = 4; // SecureMessage
+}
