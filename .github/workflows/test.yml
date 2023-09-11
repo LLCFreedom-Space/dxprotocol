@@ -12,10 +12,10 @@ jobs:
 
     steps:
       - name: Get Sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         
       - name: Setup Swift
-        uses: swift-actions/setup-swift@v1.24.0
+        uses: swift-actions/setup-swift@v1
         with:
               swift-version: "5.8.0"
     
@@ -23,4 +23,4 @@ jobs:
         run: swift build
 
       - name: Run tests
-        run: swift test --enable-code-coverage
+        run: swift test -v --enable-code-coverage
