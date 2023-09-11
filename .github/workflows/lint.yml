@@ -1,0 +1,15 @@
+# This workflow will build a Swift project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-swift
+
+name: Lint code
+
+on: push
+
+jobs:
+  SwiftLint:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v1
+      
+      - name: Lint code using SwiftLint
+        run: swiftlint lint --reporter github-actions-logging
