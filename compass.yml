@@ -1,0 +1,24 @@
+name: DXProtocol
+id: 'ari:cloud:compass:9f2f3021-6c0c-4d5b-bf04-558f54eb6d69:component/a1dbf0d8-af76-46a1-b26b-63b12025bc76/03716989-171e-4c61-9692-560557f392a2'
+description: >-
+  The DXProtocol is a library for encrypting text messages. The DXProtocol provides end-to-end encryption for voice and instant messaging
+  conversations. This protocol is based on the Double Ratchet algorithm and the "Extended Triple Diffie-Hellman" key agreement protocol.
+configVersion: 1
+typeId: LIBRARY
+ownerId: 'ari:cloud:teams::team/fcc4f8ef-8527-4eb0-9a5e-6515cb346bcc'
+fields:
+  lifecycle: Active
+  tier: 1
+links:
+  - name: null
+    type: REPOSITORY
+    url: 'https://github.com/LLCFreedom-Space/dxprotocol'
+  - name: ''
+    type: PROJECT
+    url: 'https://platmaster.atlassian.net/browse/DX'
+relationships: {}
+labels: null
+customFields: null
+
+# Докладніше про форматування файлу compass.yml:
+# https://go.atlassian.com/compass-yml-format
