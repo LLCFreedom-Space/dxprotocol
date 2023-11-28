@@ -21,8 +21,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        xcode: ['15.0.1']
-        macos: ['14.0']
+        xcode: ['15.0-beta']
+        macos: ['macos-13']
         scheme: ['DXProtocol']
         command: ['test']
         platform: ['macOS', 'iOS', 'mac-catalyst']
