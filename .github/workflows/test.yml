@@ -1,26 +1,58 @@
-name: Test Package
+name: Test all  platforms
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
-    branches: [main]
+    branches: [ main ]
+  workflow_dispatch:
+  schedule:
+    - cron: 0 0 * * *
+
+# https://stackoverflow.com/a/72408109/6942800
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
-    runs-on: macos-latest
-
+  build_and_test:
+    name: ${{ matrix.command }} on  ${{ matrix.platform }} (xcode ${{ matrix.xcode }}, ${{ matrix.macos }})
+    runs-on: ${{ matrix.macos }} 
+    strategy:
+      fail-fast: false
+      matrix:
+        xcode: ['15.0', '15.0.1']
+        macos: ['macos-14', 'macos-13']
+        scheme: ['DXProtocol']
+        command: ['test']
+        platform: ['macOS', 'iOS', 'mac-catalyst']
+        exclude:
+          - macos: 'macos-13'
+            xcode: '15.0'
+          - macos: 'macos-13'
+            xcode: '15.0.1'
     steps:
-      - name: Get Sources
-        uses: actions/checkout@v3
-        
-      - name: Setup Swift
-        uses: swift-actions/setup-swift@v1
-        with:
-              swift-version: "5.8.0"
-
-      - name: Build
-        run: swift build
-        
-      - name: Run tests
-        run: swift test --skip-build
+    - name: Switch xcode to ${{ matrix.xcode }}
+      uses: maxim-lobanov/setup-xcode@v1.2.3
+      with:
+        xcode-version: ${{ matrix.xcode }}
+    - name: Double-check macOS version (${{ matrix.macos }})
+      run: sw_vers
+    - name: Code Checkout
+      uses: actions/checkout@v2
+    - name: Check xcodebuild version
+      run: xcodebuild -version
+    - name: Check xcode embedded SDKs
+      run: xcodebuild -showsdks
+    - name: Show buildable schemes
+      run: xcodebuild -list
+    - name: Show eligible build destinations for ${{ matrix.scheme }}
+      run: xcodebuild -showdestinations -scheme ${{ matrix.scheme }}
+    - uses: mxcl/xcodebuild@v1.9.2
+      with:
+        platform: ${{ matrix.platform }}
+        scheme: ${{ matrix.scheme }}
+        action: ${{ matrix.command }} 
+        code-coverage: true
+        verbosity: xcpretty
+        upload-logs: always
