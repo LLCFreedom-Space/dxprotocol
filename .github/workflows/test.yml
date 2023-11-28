@@ -6,8 +6,6 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
-#  schedule:
-#    - cron: 0 0 * * *
 
 # https://stackoverflow.com/a/72408109/6942800
 concurrency:
