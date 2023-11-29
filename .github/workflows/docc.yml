@@ -32,13 +32,8 @@ jobs:
           $(xcrun --find docc) process-archive \
             transform-for-static-hosting /tmp/docbuild/Build/Products/Debug-iphoneos/DXProtocol.doccarchive \
             --output-path docs \
-            --hosting-base-path DXProtocol;
+            --hosting-base-path dxprotocol;
           echo "<script>window.location.href += \"/documentation/dxprotocol\"</script>" > docs/index.html;
-
-          $(xcrun --find docc) process-archive \
-            transform-for-static-hosting /tmp/docbuild/Build/Products/Debug-iphoneos/SwiftProtobuf.doccarchive \
-            --hosting-base-path DXProtocol/SwiftProtobuf \
-            --output-path docs/SwiftProtobuf
 
       - name: Upload artifact 📜
         uses: actions/upload-pages-artifact@v1
