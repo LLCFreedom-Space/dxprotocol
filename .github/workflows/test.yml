@@ -5,32 +5,24 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-    
-env:
-  SCHEME: DXProtocol
-  TEST_DEVICE: platform=iOS Simulator,name=iPhone 14,OS=16.2
 
 jobs:
   build:
-    runs-on: macos-latest
-    timeout-minutes: 30
-
+    runs-on: macOS-13
     steps:
-    - name: Checkout project repo
-      uses: actions/checkout@v4
-
-    - name: Build
-      shell: bash
-      run: xcodebuild -scheme '${{ env.SCHEME }}' -sdk iphonesimulator -destination '${{ env.TEST_DEVICE }}' build
-
-  test:
-    runs-on: macos-latest
-    timeout-minutes: 30
-
-    steps:
-    - name: Checkout project repo
-      uses: actions/checkout@v4
-
-    - name: Test
-      shell: bash
-      run: xcodebuild -scheme '${{ env.SCHEME }}' -sdk iphonesimulator -destination '${{ env.TEST_DEVICE }}' test
+    - uses: actions/checkout@v4
+    - name: Switch Xcode 🔄
+      run: sudo xcode-select --switch /Applications/Xcode_15.0.app
+    - name: Swift Lint
+      run: swiftlint --strict
+    - name: Test iOS
+      run: xcodebuild test -scheme DXProtocol -destination "platform=iOS Simulator,name=iPhone 15" -enableCodeCoverage YES
+    - name: Fetch Coverage
+      uses: sersoft-gmbh/swift-coverage-action@v4
+      id: coverage-files
+    - name: Publish Coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        files: ${{ join(fromJSON(steps.coverage-files.outputs.files), ',') }}
+    - name: Test macOS
+      run: xcodebuild test -scheme DXProtocol -destination "platform=macOS" -enableCodeCoverage YES
