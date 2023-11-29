@@ -1,0 +1,14 @@
+# The name of this workflow.
+name: docc
+
+# The events that will trigger running this workflow.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Set permissions for the GitHub token running the Action to allow deployment to GitHub Pages, and read permissions for checking out the repository content.
+permissions:
+  pages: write
+  id-token: write
+  contents: read
