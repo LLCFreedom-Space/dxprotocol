@@ -1,0 +1,52 @@
+# The name of this workflow.
+name: docc
+
+# The events that will trigger running this workflow.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Set permissions for the GitHub token running the Action to allow deployment to GitHub Pages, and read permissions for checking out the repository content.
+permissions:
+  pages: write
+  id-token: write
+  contents: read
+# Declare the jobs map, and start with the build job.
+jobs:
+  build:
+    # Because the script relies on xcrun and Xcode, you’ll need a macOS runner. When using DocC as a Swift package plugin, you can use a Linux machine instead.
+    runs-on: macos-12
+    # One or more steps make up a job. Declare the list of steps, and start by checking out the repository taking only the last commit. Therefore, the fetch-depth option is set to 0.
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      # After checking out the repository, run the build-docc.sh script.
+      - name: Run Build Docs
+        run: ./build-docc.sh
+      # Use the actions that GitHub provides: one for configuring pages and another for uploading the contents that the script will generate and place under .docs.
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v3
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: .docs
+
+  # Define the deploy job.
+  deploy:
+    # Because Xcode isn’t necessary anymore, you can choose a Linux runner.
+    runs-on: ubuntu-latest
+    # The previous job, build, created and uploaded the artifacts.
+    needs: build
+    # Declare a single step for this job based on the official actions/deploy-pages Action. Set the environment variables it requires.
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
