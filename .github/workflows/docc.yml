@@ -27,12 +27,18 @@ jobs:
         uses: actions/checkout@v3
       - name: Build All DocC 🛠
         run: |
+          swift package resolve;
           xcodebuild docbuild -scheme DXProtocol -derivedDataPath /tmp/docbuild -destination 'generic/platform=iOS';
           $(xcrun --find docc) process-archive \
             transform-for-static-hosting /tmp/docbuild/Build/Products/Debug-iphoneos/DXProtocol.doccarchive \
             --output-path docs \
             --hosting-base-path DXProtocol;
           echo "<script>window.location.href += \"/documentation/dxprotocol\"</script>" > docs/index.html;
+
+          $(xcrun --find docc) process-archive \
+            transform-for-static-hosting /tmp/docbuild/Build/Products/Debug-iphoneos/SwiftProtobuf.doccarchive \
+            --hosting-base-path DXProtocol/SwiftProtobuf \
+            --output-path docs/SwiftProtobuf
 
       - name: Upload artifact 📜
         uses: actions/upload-pages-artifact@v1
