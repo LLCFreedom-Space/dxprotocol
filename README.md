@@ -2,7 +2,7 @@
 
 [![Swift Version][swift-image]][swift-url]
 [![License][license-image]][license-url]
-[![GitHub release](https://img.shields.io/github/release/Naereen/StrapDown.js.svg)](https://github.com/LLCFreedom-Space/dxprotocol.git/releases/)
+![GitHub release (with filter)](https://img.shields.io/github/v/release/LLCFreedom-Space/dxprotocol)
 [![Read the Docs](https://readthedocs.org/projects/docs/badge/?version=latest)](https://llcfreedom-space.github.io/dxprotocol/)
 ![example workflow](https://github.com/LLCFreedom-Space/dxprotocol/actions/workflows/docc.yml/badge.svg?branch=main)
 ![example workflow](https://github.com/LLCFreedom-Space/dxprotocol/actions/workflows/lint.yml/badge.svg?branch=main)
