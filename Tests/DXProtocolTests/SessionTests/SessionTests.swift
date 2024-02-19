@@ -265,6 +265,168 @@ final class SessionTests: XCTestCase {
         let decryptedText2 = try XCTUnwrap(String(data: decrypted2, encoding: .utf8))
         XCTAssertEqual(plaintext2, decryptedText2)
     }
+    
+    func testThreadSafeSimultaneousDecrypt() async throws {
+        let senderClient = try TestClient(userId: UUID())  // Alice
+        let recipientClient = try TestClient(userId: UUID())  // Bob
+        let recipientAddress = recipientClient.protocolAddress
+        
+        try initializeSession(senderClient: senderClient, recipientClient: recipientClient)
+        
+        // Alice creates a set of messages
+        let aliceMessageCount = 50
+        var aliceMessages: [(Data, MessageContainer)] = []
+        for index in 0..<aliceMessageCount {
+            var aliceSession = try senderClient.sessionStore.loadSession(for: recipientAddress)
+            let data = try XCTUnwrap("From Alice \(index)".data(using: .utf8))
+            let message = try XCTUnwrap(
+                    try aliceSession?.encrypt(
+                            data: data,
+                            for: recipientAddress,
+                            sessionStore: senderClient.sessionStore,
+                            identityStore: senderClient.identityKeyStore)
+            )
+            let item = (data, message)
+            aliceMessages.append(item)
+        }
+        aliceMessages.shuffle()
+
+        var tasks = [Task<(Data, Data), Error>]()
+        for aliceMessage in aliceMessages {
+            let task = Task {
+                let decryptedMessage = try Session.decrypt(
+                    message: aliceMessage.1,
+                    from: senderClient.protocolAddress,
+                    sessionStore: recipientClient.sessionStore,
+                    identityStore: recipientClient.identityKeyStore,
+                    preKeyStore: recipientClient.preKeyStore,
+                    signedPreKeyStore: recipientClient.signedPreKeyStore)
+                let expectedMessage = aliceMessage.0
+                return (decryptedMessage, expectedMessage)
+            }
+            tasks.append(task)
+        }
+        
+        var results = [(decrypted: Data, expected: Data)]()
+        for task in tasks {
+            let result = try await task.value
+            results.append(result)
+        }
+
+        for result in results {
+            XCTAssertEqual(result.decrypted, result.expected)
+        }
+    }
+    
+    func testThreadSafeSimultaneousEncrypt() async throws {
+        let senderClient = try TestClient(userId: UUID())  // Alice
+        let recipientClient = try TestClient(userId: UUID())  // Bob
+        let recipientAddress = recipientClient.protocolAddress
+        
+        try initializeSession(senderClient: senderClient, recipientClient: recipientClient)
+        
+        // Actually test for Thread Safe begins here
+        
+        let plaintext = "Do not despair when your enemy attacks you."
+        let data = try XCTUnwrap(plaintext.data(using: .utf8))
+        let task1 = Task {
+            var session = try XCTUnwrap(try senderClient.sessionStore.loadSession(for: recipientAddress))
+            return try session.encrypt(
+                data: data,
+                for: recipientClient.protocolAddress,
+                sessionStore: senderClient.sessionStore,
+                identityStore: senderClient.identityKeyStore)
+        }
+        
+        let task2 = Task {
+            var session = try XCTUnwrap(try senderClient.sessionStore.loadSession(for: recipientAddress))
+            return try session.encrypt(
+                data: data,
+                for: recipientClient.protocolAddress,
+                sessionStore: senderClient.sessionStore,
+                identityStore: senderClient.identityKeyStore)
+        }
+        
+        let task3 = Task {
+            var session = try XCTUnwrap(try senderClient.sessionStore.loadSession(for: recipientAddress))
+            return try session.encrypt(
+                data: data,
+                for: recipientClient.protocolAddress,
+                sessionStore: senderClient.sessionStore,
+                identityStore: senderClient.identityKeyStore)
+        }
+        
+        let task4 = Task {
+            var session = try XCTUnwrap(try senderClient.sessionStore.loadSession(for: recipientAddress))
+            return try session.encrypt(
+                data: data,
+                for: recipientClient.protocolAddress,
+                sessionStore: senderClient.sessionStore,
+                identityStore: senderClient.identityKeyStore)
+        }
+        
+        let task5 = Task {
+            var session = try XCTUnwrap(try senderClient.sessionStore.loadSession(for: recipientAddress))
+            return try session.encrypt(
+                data: data,
+                for: recipientClient.protocolAddress,
+                sessionStore: senderClient.sessionStore,
+                identityStore: senderClient.identityKeyStore)
+        }
+        
+        let message1 = try await task1.value
+        let message2 = try await task2.value
+        let message3 = try await task3.value
+        let message4 = try await task4.value
+        let message5 = try await task5.value
+        
+        let decryptedMessage1 = try Session.decrypt(
+            message: message1,
+            from: senderClient.protocolAddress,
+            sessionStore: recipientClient.sessionStore,
+            identityStore: recipientClient.identityKeyStore,
+            preKeyStore: recipientClient.preKeyStore,
+            signedPreKeyStore: recipientClient.signedPreKeyStore)
+        
+        let decryptedMessage2 = try Session.decrypt(
+            message: message2,
+            from: senderClient.protocolAddress,
+            sessionStore: recipientClient.sessionStore,
+            identityStore: recipientClient.identityKeyStore,
+            preKeyStore: recipientClient.preKeyStore,
+            signedPreKeyStore: recipientClient.signedPreKeyStore)
+        
+        let decryptedMessage3 = try Session.decrypt(
+            message: message3,
+            from: senderClient.protocolAddress,
+            sessionStore: recipientClient.sessionStore,
+            identityStore: recipientClient.identityKeyStore,
+            preKeyStore: recipientClient.preKeyStore,
+            signedPreKeyStore: recipientClient.signedPreKeyStore)
+        
+        let decryptedMessage4 = try Session.decrypt(
+            message: message4,
+            from: senderClient.protocolAddress,
+            sessionStore: recipientClient.sessionStore,
+            identityStore: recipientClient.identityKeyStore,
+            preKeyStore: recipientClient.preKeyStore,
+            signedPreKeyStore: recipientClient.signedPreKeyStore)
+        
+        let decryptedMessage5 = try Session.decrypt(
+            message: message5,
+            from: senderClient.protocolAddress,
+            sessionStore: recipientClient.sessionStore,
+            identityStore: recipientClient.identityKeyStore,
+            preKeyStore: recipientClient.preKeyStore,
+            signedPreKeyStore: recipientClient.signedPreKeyStore)
+        
+        XCTAssertEqual(decryptedMessage1, data)
+        XCTAssertEqual(decryptedMessage2, data)
+        XCTAssertEqual(decryptedMessage3, data)
+        XCTAssertEqual(decryptedMessage4, data)
+        XCTAssertEqual(decryptedMessage5, data)
+    }
+
     // FIXME: - Need fix
     func testOutOfOrder() throws {
         let senderClient = try TestClient(userId: UUID())  // Alice
