@@ -109,6 +109,10 @@ public struct Session: Codable {
 
         try identityStore.saveIdentity(theirIdentityKey, for: address)
 
+        let lock = SessionLock(address: address)
+        lock.lock()
+        defer { lock.unlock() }
+
         var session = try sessionStore.loadSession(for: address)
         if nil == session {
             session = Self(state: state)
@@ -154,6 +158,10 @@ public struct Session: Codable {
                 direction: .receiving) else {
             throw DXError.untrustedIdentity("Abort processing PreKey Message for untrusted identity")
         }
+        
+        let lock = SessionLock(address: address)
+        lock.lock()
+        defer { lock.unlock() }
 
         let theirBaseKey = message.senderBaseKey
         let messageVersion = Int(message.messageVersion)
@@ -227,6 +235,10 @@ public struct Session: Codable {
                                  for address: ProtocolAddress,
                                  sessionStore: SessionStorable,
                                  identityStore: IdentityKeyStorable) throws -> MessageContainer {
+        let lock = SessionLock(address: address)
+        lock.lock()
+        defer { lock.unlock() }
+
         let result = try self.state.encrypt(
                 data: data,
                 sessionStore: sessionStore,
@@ -311,6 +323,10 @@ extension Session {
                                 identityStore: IdentityKeyStorable,
                                 preKeyStore: PreKeyStorable,
                                 signedPreKeyStore: SignedPreKeyStorable) throws -> Data {
+        let lock = SessionLock(address: address)
+        lock.lock()
+        defer { lock.unlock() }
+
         var session = try self.processPreKeyMessage(
                 preKeyMessage,
                 from: address,
@@ -347,6 +363,10 @@ extension Session {
                                 from address: ProtocolAddress,
                                 sessionStore: SessionStorable,
                                 identityStore: IdentityKeyStorable) throws -> Data {
+        let lock = SessionLock(address: address)
+        lock.lock()
+        defer { lock.unlock() }
+
         // This code is not covered by tests
         guard var session = try sessionStore.loadSession(for: address) else {
             throw DXError.sessionNotFound("Failed to find session while decrypting message")
