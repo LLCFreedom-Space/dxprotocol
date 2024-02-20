@@ -20,14 +20,15 @@ final class SessionLockStorage {
     /// - Parameter address: The protocol address that uniquely identifies session and lock for it
     /// - Returns: A lock allowing to sync access to the session
     func lock(for address: ProtocolAddress) -> NSRecursiveLock {
-        var result: NSRecursiveLock
-        if let lock = self.storage[address] {
-            result = lock
-        } else {
-            result = NSRecursiveLock()
-            self.storage[address] = result
+        self.syncAccessQueue.sync {
+            var result: NSRecursiveLock
+            if let lock = self.storage[address] {
+                result = lock
+            } else {
+                result = NSRecursiveLock()
+                self.storage[address] = result
+            }
+            return result
         }
-        
-        return result
     }
 }
