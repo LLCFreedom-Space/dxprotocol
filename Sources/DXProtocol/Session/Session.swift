@@ -371,7 +371,6 @@ extension Session {
         lock.lock()
         defer { lock.unlock() }
 
-        // This code is not covered by tests
         guard var session = try sessionStore.loadSession(for: address) else {
             throw DXError.sessionNotFound("Failed to find session while decrypting message")
         }

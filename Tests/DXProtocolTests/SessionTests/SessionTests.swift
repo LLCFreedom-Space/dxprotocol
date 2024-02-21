@@ -1405,6 +1405,56 @@ final class SessionTests: XCTestCase {
         let loadSession = try bobClient.sessionStore.loadSession(for: bobAddress)
         XCTAssertEqual(loadSession, session)
     }
+    
+    func testEncryptWhenSessionNotExists() throws {
+        let senderClient = try TestClient(userId: UUID())  // Alice
+        let recipientClient = try TestClient(userId: UUID())  // Bob
+        let invalidAddress = ProtocolAddress(userId: UUID(), deviceId: UUID())
+        try initializeSession(senderClient: senderClient, recipientClient: recipientClient)
+
+        do {
+            let text = "Foo"
+            let message = try Session.encrypt(
+                data: try XCTUnwrap(text.data(using: .utf8)),
+                for: invalidAddress,
+                sessionStore: senderClient.sessionStore,
+                identityStore: senderClient.identityKeyStore)
+            XCTFail("Encrypt should fail: \(message)")
+        } catch DXError.sessionNotFound {
+            return
+        } catch {
+            XCTFail("Invalid error type: \(error)")
+        }
+    }
+    
+    func testDecryptWhenSessionNotExists() throws {
+        let senderClient = try TestClient(userId: UUID())  // Alice
+        let recipientClient = try TestClient(userId: UUID())  // Bob
+        let invalidAddress = ProtocolAddress(userId: UUID(), deviceId: UUID())
+        try initializeSession(senderClient: senderClient, recipientClient: recipientClient)
+
+        let text = "Foo"
+        let encryptedMessage = try Session.encrypt(
+            data: try XCTUnwrap(text.data(using: .utf8)),
+            for: recipientClient.protocolAddress,
+            sessionStore: senderClient.sessionStore,
+            identityStore: senderClient.identityKeyStore)
+
+        do {
+            let decryptedMessage = try Session.decrypt(
+                    message: encryptedMessage,
+                    from: invalidAddress,
+                    sessionStore: recipientClient.sessionStore,
+                    identityStore: recipientClient.identityKeyStore,
+                    preKeyStore: recipientClient.preKeyStore,
+                    signedPreKeyStore: recipientClient.signedPreKeyStore)
+            XCTFail("Decrypt should fail: \(decryptedMessage)")
+        } catch DXError.sessionNotFound {
+            return
+        } catch {
+            XCTFail("Invalid error type: \(error)")
+        }
+    }
 }
 
 extension SessionTests {
