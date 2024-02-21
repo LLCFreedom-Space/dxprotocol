@@ -118,6 +118,8 @@ final class SessionTests: XCTestCase {
     func testInitializeSessionOptionalOneTimePreKey() throws {
         let senderClient = try TestClient(userId: UUID())  // Alice
         let recipientClient = try TestClient(userId: UUID())  // Bob
+        let aliceAddress = senderClient.protocolAddress
+        let bobAddress = recipientClient.protocolAddress
 
         // Generate identity information
         let bobIdentityKeyPair = try recipientClient.identityKeyStore.identityKeyPair()
@@ -141,24 +143,24 @@ final class SessionTests: XCTestCase {
                 oneTimePreKey: nil)
 
         // Alice processes the bundle:
-        var aliceSession = try Session.processPreKeyBundle(
+        try Session.processPreKeyBundle(
                 bobBundle,
-                for: recipientClient.protocolAddress,
+                for: bobAddress,
                 sessionStore: senderClient.sessionStore,
                 identityStore: senderClient.identityKeyStore)
 
         // Alice creates the first message (Pre Key message)
         let initialMessageData = try XCTUnwrap("Optional OneTime PreKey".data(using: .utf8))
-        let aliceMessage = try aliceSession.encrypt(
+        let aliceMessage = try Session.encrypt(
                 data: initialMessageData,
-                for: recipientClient.protocolAddress,
+                for: bobAddress,
                 sessionStore: senderClient.sessionStore,
                 identityStore: senderClient.identityKeyStore)
 
         // Bob decrypts the first message (Pre Key message) from Alice
         var result = try Session.decrypt(
                 message: aliceMessage,
-                from: senderClient.protocolAddress,
+                from: aliceAddress,
                 sessionStore: recipientClient.sessionStore,
                 identityStore: recipientClient.identityKeyStore,
                 preKeyStore: recipientClient.preKeyStore,
@@ -166,19 +168,17 @@ final class SessionTests: XCTestCase {
         XCTAssertEqual(result, initialMessageData)
 
         // Finally, Bob sends a message back to acknowledge the pre-key.
-        let aliceAddress = senderClient.protocolAddress
-        var bobSession = try XCTUnwrap(try recipientClient.sessionStore.loadSession(for: aliceAddress))
         let bobReplyData = try XCTUnwrap("Reply Optional OneTime PreKey".data(using: .utf8))
-        let bobMessage = try bobSession.encrypt(
+        let bobMessage = try Session.encrypt(
                 data: bobReplyData,
-                for: senderClient.protocolAddress,
+                for: aliceAddress,
                 sessionStore: recipientClient.sessionStore,
                 identityStore: recipientClient.identityKeyStore)
 
         // Alice decrypts first message from Bob (with acknowledge of the pre-key)
         result = try Session.decrypt(
                 message: bobMessage,
-                from: recipientClient.protocolAddress,
+                from: bobAddress,
                 sessionStore: senderClient.sessionStore,
                 identityStore: senderClient.identityKeyStore,
                 preKeyStore: senderClient.preKeyStore,
@@ -196,11 +196,10 @@ final class SessionTests: XCTestCase {
 
         // Alice sends the second message (may be after some time so load session from storage)
         let bobAddress = recipientClient.protocolAddress
-        var aliceSession1 = try XCTUnwrap(try senderClient.sessionStore.loadSession(for: bobAddress))
         let secondMessageString = "Those who stands for nothing will fall for anything"
-        let secondMessage = try aliceSession1.encrypt(
+        let secondMessage = try Session.encrypt(
                 data: try XCTUnwrap(secondMessageString.data(using: .utf8)),
-                for: recipientClient.protocolAddress,
+                for: bobAddress,
                 sessionStore: senderClient.sessionStore,
                 identityStore: senderClient.identityKeyStore)
 
@@ -227,25 +226,25 @@ final class SessionTests: XCTestCase {
 
         // Alice sends the two messages in a row
         let bobAddress = recipientClient.protocolAddress
-        var aliceSession1 = try XCTUnwrap(try senderClient.sessionStore.loadSession(for: bobAddress))
         let plaintext1 = "Those who stands for nothing will fall for anything"
-        let cipherMessage1 = try aliceSession1.encrypt(
+        let cipherMessage1 = try Session.encrypt(
                 data: try XCTUnwrap(plaintext1.data(using: .utf8)),
-                for: recipientClient.protocolAddress,
+                for: bobAddress,
                 sessionStore: senderClient.sessionStore,
                 identityStore: senderClient.identityKeyStore)
 
         let plaintext2 = "Do not despair when your enemy attacks you."
-        let cipherMessage2 = try aliceSession1.encrypt(
+        let cipherMessage2 = try Session.encrypt(
                 data: try XCTUnwrap(plaintext2.data(using: .utf8)),
-                for: recipientClient.protocolAddress,
+                for: bobAddress,
                 sessionStore: senderClient.sessionStore,
                 identityStore: senderClient.identityKeyStore)
 
         // Bob decrypts these messages from Alice
+        let aliceAddress = senderClient.protocolAddress
         let decrypted1 = try Session.decrypt(
                 message: cipherMessage1,
-                from: senderClient.protocolAddress,
+                from: aliceAddress,
                 sessionStore: recipientClient.sessionStore,
                 identityStore: recipientClient.identityKeyStore,
                 preKeyStore: recipientClient.preKeyStore,
@@ -253,7 +252,7 @@ final class SessionTests: XCTestCase {
 
         let decrypted2 = try Session.decrypt(
                 message: cipherMessage2,
-                from: senderClient.protocolAddress,
+                from: aliceAddress,
                 sessionStore: recipientClient.sessionStore,
                 identityStore: recipientClient.identityKeyStore,
                 preKeyStore: recipientClient.preKeyStore,
@@ -265,27 +264,25 @@ final class SessionTests: XCTestCase {
         let decryptedText2 = try XCTUnwrap(String(data: decrypted2, encoding: .utf8))
         XCTAssertEqual(plaintext2, decryptedText2)
     }
-    
+
     func testThreadSafeSimultaneousDecrypt() async throws {
         let senderClient = try TestClient(userId: UUID())  // Alice
         let recipientClient = try TestClient(userId: UUID())  // Bob
-        let recipientAddress = recipientClient.protocolAddress
-        
+        let bobAddress = recipientClient.protocolAddress
+        let aliceAddress = senderClient.protocolAddress
+
         try initializeSession(senderClient: senderClient, recipientClient: recipientClient)
         
         // Alice creates a set of messages
         let aliceMessageCount = 50
         var aliceMessages: [(Data, MessageContainer)] = []
         for index in 0..<aliceMessageCount {
-            var aliceSession = try senderClient.sessionStore.loadSession(for: recipientAddress)
             let data = try XCTUnwrap("From Alice \(index)".data(using: .utf8))
-            let message = try XCTUnwrap(
-                    try aliceSession?.encrypt(
+            let message = try Session.encrypt(
                             data: data,
-                            for: recipientAddress,
+                            for: bobAddress,
                             sessionStore: senderClient.sessionStore,
                             identityStore: senderClient.identityKeyStore)
-            )
             let item = (data, message)
             aliceMessages.append(item)
         }
@@ -296,7 +293,7 @@ final class SessionTests: XCTestCase {
             let task = Task {
                 let decryptedMessage = try Session.decrypt(
                     message: aliceMessage.1,
-                    from: senderClient.protocolAddress,
+                    from: aliceAddress,
                     sessionStore: recipientClient.sessionStore,
                     identityStore: recipientClient.identityKeyStore,
                     preKeyStore: recipientClient.preKeyStore,
@@ -317,114 +314,49 @@ final class SessionTests: XCTestCase {
             XCTAssertEqual(result.decrypted, result.expected)
         }
     }
-    
+
     func testThreadSafeSimultaneousEncrypt() async throws {
         let senderClient = try TestClient(userId: UUID())  // Alice
         let recipientClient = try TestClient(userId: UUID())  // Bob
-        let recipientAddress = recipientClient.protocolAddress
+        let bobAddress = recipientClient.protocolAddress
         
         try initializeSession(senderClient: senderClient, recipientClient: recipientClient)
         
         // Actually test for Thread Safe begins here
         
-        let plaintext = "Do not despair when your enemy attacks you."
-        let data = try XCTUnwrap(plaintext.data(using: .utf8))
-        let task1 = Task {
-            var session = try XCTUnwrap(try senderClient.sessionStore.loadSession(for: recipientAddress))
-            return try session.encrypt(
-                data: data,
-                for: recipientClient.protocolAddress,
-                sessionStore: senderClient.sessionStore,
-                identityStore: senderClient.identityKeyStore)
+        
+        var tasks = [Task<(MessageContainer, Data), Error>]()
+        for index in 0..<5 {
+            let task = Task {
+                let plaintext = "Message \(index)"
+                let data = try XCTUnwrap(plaintext.data(using: .utf8))
+                let encrypted = try Session.encrypt(
+                    data: data,
+                    for: bobAddress,
+                    sessionStore: senderClient.sessionStore,
+                    identityStore: senderClient.identityKeyStore)
+                return (encrypted, data)
+            }
+            tasks.append(task)
         }
         
-        let task2 = Task {
-            var session = try XCTUnwrap(try senderClient.sessionStore.loadSession(for: recipientAddress))
-            return try session.encrypt(
-                data: data,
-                for: recipientClient.protocolAddress,
-                sessionStore: senderClient.sessionStore,
-                identityStore: senderClient.identityKeyStore)
+        var encryptResults = [(encrypted: MessageContainer, expected: Data)]()
+        for task in tasks {
+            let result = try await task.value
+            encryptResults.append(result)
         }
         
-        let task3 = Task {
-            var session = try XCTUnwrap(try senderClient.sessionStore.loadSession(for: recipientAddress))
-            return try session.encrypt(
-                data: data,
-                for: recipientClient.protocolAddress,
-                sessionStore: senderClient.sessionStore,
-                identityStore: senderClient.identityKeyStore)
+        for result in encryptResults {
+            let decrypted = try Session.decrypt(
+                message: result.encrypted,
+                from: senderClient.protocolAddress,
+                sessionStore: recipientClient.sessionStore,
+                identityStore: recipientClient.identityKeyStore,
+                preKeyStore: recipientClient.preKeyStore,
+                signedPreKeyStore: recipientClient.signedPreKeyStore)
+
+            XCTAssertEqual(decrypted, result.expected)
         }
-        
-        let task4 = Task {
-            var session = try XCTUnwrap(try senderClient.sessionStore.loadSession(for: recipientAddress))
-            return try session.encrypt(
-                data: data,
-                for: recipientClient.protocolAddress,
-                sessionStore: senderClient.sessionStore,
-                identityStore: senderClient.identityKeyStore)
-        }
-        
-        let task5 = Task {
-            var session = try XCTUnwrap(try senderClient.sessionStore.loadSession(for: recipientAddress))
-            return try session.encrypt(
-                data: data,
-                for: recipientClient.protocolAddress,
-                sessionStore: senderClient.sessionStore,
-                identityStore: senderClient.identityKeyStore)
-        }
-        
-        let message1 = try await task1.value
-        let message2 = try await task2.value
-        let message3 = try await task3.value
-        let message4 = try await task4.value
-        let message5 = try await task5.value
-        
-        let decryptedMessage1 = try Session.decrypt(
-            message: message1,
-            from: senderClient.protocolAddress,
-            sessionStore: recipientClient.sessionStore,
-            identityStore: recipientClient.identityKeyStore,
-            preKeyStore: recipientClient.preKeyStore,
-            signedPreKeyStore: recipientClient.signedPreKeyStore)
-        
-        let decryptedMessage2 = try Session.decrypt(
-            message: message2,
-            from: senderClient.protocolAddress,
-            sessionStore: recipientClient.sessionStore,
-            identityStore: recipientClient.identityKeyStore,
-            preKeyStore: recipientClient.preKeyStore,
-            signedPreKeyStore: recipientClient.signedPreKeyStore)
-        
-        let decryptedMessage3 = try Session.decrypt(
-            message: message3,
-            from: senderClient.protocolAddress,
-            sessionStore: recipientClient.sessionStore,
-            identityStore: recipientClient.identityKeyStore,
-            preKeyStore: recipientClient.preKeyStore,
-            signedPreKeyStore: recipientClient.signedPreKeyStore)
-        
-        let decryptedMessage4 = try Session.decrypt(
-            message: message4,
-            from: senderClient.protocolAddress,
-            sessionStore: recipientClient.sessionStore,
-            identityStore: recipientClient.identityKeyStore,
-            preKeyStore: recipientClient.preKeyStore,
-            signedPreKeyStore: recipientClient.signedPreKeyStore)
-        
-        let decryptedMessage5 = try Session.decrypt(
-            message: message5,
-            from: senderClient.protocolAddress,
-            sessionStore: recipientClient.sessionStore,
-            identityStore: recipientClient.identityKeyStore,
-            preKeyStore: recipientClient.preKeyStore,
-            signedPreKeyStore: recipientClient.signedPreKeyStore)
-        
-        XCTAssertEqual(decryptedMessage1, data)
-        XCTAssertEqual(decryptedMessage2, data)
-        XCTAssertEqual(decryptedMessage3, data)
-        XCTAssertEqual(decryptedMessage4, data)
-        XCTAssertEqual(decryptedMessage5, data)
     }
 
     // FIXME: - Need fix
@@ -438,25 +370,25 @@ final class SessionTests: XCTestCase {
 
         // Alice sends the messages
         let bobAddress = recipientClient.protocolAddress
-        var aliceSession1 = try XCTUnwrap(try senderClient.sessionStore.loadSession(for: bobAddress))
         let plaintext1 = "Those who stands for nothing will fall for anything"
-        let cipherMessage1 = try aliceSession1.encrypt(
+        let cipherMessage1 = try Session.encrypt(
                 data: try XCTUnwrap(plaintext1.data(using: .utf8)),
-                for: recipientClient.protocolAddress,
+                for: bobAddress,
                 sessionStore: senderClient.sessionStore,
                 identityStore: senderClient.identityKeyStore)
 
         let plaintext2 = "Do not despair when your enemy attacks you."
-        let cipherMessage2 = try aliceSession1.encrypt(
+        let cipherMessage2 = try Session.encrypt(
                 data: try XCTUnwrap(plaintext2.data(using: .utf8)),
-                for: recipientClient.protocolAddress,
+                for: bobAddress,
                 sessionStore: senderClient.sessionStore,
                 identityStore: senderClient.identityKeyStore)
 
         // Bob decrypts second message first
+        let aliceAddress = senderClient.protocolAddress
         let decrypted2 = try Session.decrypt(
                 message: cipherMessage2,
-                from: senderClient.protocolAddress,
+                from: aliceAddress,
                 sessionStore: recipientClient.sessionStore,
                 identityStore: recipientClient.identityKeyStore,
                 preKeyStore: recipientClient.preKeyStore,
@@ -464,7 +396,7 @@ final class SessionTests: XCTestCase {
 
         let decrypted1 = try Session.decrypt(
                 message: cipherMessage1,
-                from: senderClient.protocolAddress,
+                from: aliceAddress,
                 sessionStore: recipientClient.sessionStore,
                 identityStore: recipientClient.identityKeyStore,
                 preKeyStore: recipientClient.preKeyStore,
@@ -480,18 +412,17 @@ final class SessionTests: XCTestCase {
     func testMessageKeyLimit() throws {
         let senderClient = try TestClient(userId: UUID())  // Alice
         let recipientClient = try TestClient(userId: UUID())  // Bob
+        let bobAddress = recipientClient.protocolAddress
+        let aliceAddress = senderClient.protocolAddress
 
         try initializeSession(senderClient: senderClient, recipientClient: recipientClient)
-
-        let bobAddress = recipientClient.protocolAddress
-        var aliceSession = try XCTUnwrap(try senderClient.sessionStore.loadSession(for: bobAddress))
 
         // Alice encrypts enough messages to hit messages keys maximum
         var messages = [MessageContainer]()
         let count = DXProtocolConstants.messageKeyMaximum + 10
         for index in 0..<count {
             let alicePlaintext = try XCTUnwrap("Foo \(index)".data(using: .utf8))
-            let aliceMessage = try aliceSession.encrypt(
+            let aliceMessage = try Session.encrypt(
                     data: alicePlaintext,
                     for: bobAddress,
                     sessionStore: senderClient.sessionStore,
@@ -502,7 +433,7 @@ final class SessionTests: XCTestCase {
         // Bob decrypts some message
         let decrypted1000 = try Session.decrypt(
                 message: messages[999],
-                from: senderClient.protocolAddress,
+                from: aliceAddress,
                 sessionStore: recipientClient.sessionStore,
                 identityStore: recipientClient.identityKeyStore,
                 preKeyStore: recipientClient.preKeyStore,
@@ -514,7 +445,7 @@ final class SessionTests: XCTestCase {
         // This will clear 'message keys' for messages with indexes lower then 'count - messageKeyMaximum'
         let decryptedLast = try Session.decrypt(
                 message: messages[count - 1],
-                from: senderClient.protocolAddress,
+                from: aliceAddress,
                 sessionStore: recipientClient.sessionStore,
                 identityStore: recipientClient.identityKeyStore,
                 preKeyStore: recipientClient.preKeyStore,
@@ -526,7 +457,7 @@ final class SessionTests: XCTestCase {
         do {
             _ = try Session.decrypt(
                     message: messages[0],
-                    from: senderClient.protocolAddress,
+                    from: aliceAddress,
                     sessionStore: recipientClient.sessionStore,
                     identityStore: recipientClient.identityKeyStore,
                     preKeyStore: recipientClient.preKeyStore,
@@ -541,24 +472,23 @@ final class SessionTests: XCTestCase {
     func testChainJumpOverLimit() throws {
         let senderClient = try TestClient(userId: UUID())  // Alice
         let recipientClient = try TestClient(userId: UUID())  // Bob
+        let bobAddress = recipientClient.protocolAddress
+        let aliceAddress = senderClient.protocolAddress
 
         try initializeSession(senderClient: senderClient, recipientClient: recipientClient)
 
-        let bobAddress = recipientClient.protocolAddress
-        var aliceSession = try XCTUnwrap(try senderClient.sessionStore.loadSession(for: bobAddress))
-
         // Alice encrypts enough messages to go past our limit
         for index in 0..<DXProtocolConstants.futureMessagesLimit + 1 {
-            _ = try aliceSession.encrypt(
+            _ = try Session.encrypt(
                     data: try XCTUnwrap("Foo \(index)".data(using: .utf8)),
-                    for: recipientClient.protocolAddress,
+                    for: bobAddress,
                     sessionStore: senderClient.sessionStore,
                     identityStore: senderClient.identityKeyStore)
         }
 
-        let aliceTooFarMessage = try aliceSession.encrypt(
+        let aliceTooFarMessage = try Session.encrypt(
                 data: try XCTUnwrap("Foo".data(using: .utf8)),
-                for: recipientClient.protocolAddress,
+                for: bobAddress,
                 sessionStore: senderClient.sessionStore,
                 identityStore: senderClient.identityKeyStore)
 
@@ -566,7 +496,7 @@ final class SessionTests: XCTestCase {
             // Bob decrypts too far message
             _ = try Session.decrypt(
                     message: aliceTooFarMessage,
-                    from: senderClient.protocolAddress,
+                    from: aliceAddress,
                     sessionStore: recipientClient.sessionStore,
                     identityStore: recipientClient.identityKeyStore,
                     preKeyStore: recipientClient.preKeyStore,
@@ -615,15 +545,12 @@ final class SessionTests: XCTestCase {
         let aliceMessageCount = 50
         var aliceMessages: [(Data, MessageContainer)] = []
         for index in 0..<aliceMessageCount {
-            var aliceSession = try aliceClient.sessionStore.loadSession(for: bobClient.protocolAddress)
             let data = try XCTUnwrap("From Alice \(index)".data(using: .utf8))
-            let message = try XCTUnwrap(
-                    try aliceSession?.encrypt(
+            let message = try Session.encrypt(
                             data: data,
                             for: bobClient.protocolAddress,
                             sessionStore: aliceClient.sessionStore,
                             identityStore: aliceClient.identityKeyStore)
-            )
             let item = (data, message)
             aliceMessages.append(item)
         }
@@ -648,15 +575,12 @@ final class SessionTests: XCTestCase {
         let bobMessageCount = 50
         var bobMessages: [(Data, MessageContainer)] = []
         for index in 0..<bobMessageCount {
-            var bobSession = try bobClient.sessionStore.loadSession(for: aliceClient.protocolAddress)
             let data = try XCTUnwrap("From Bob \(index)".data(using: .utf8))
-            let message = try XCTUnwrap(
-                    try bobSession?.encrypt(
+            let message = try Session.encrypt(
                             data: data,
                             for: aliceClient.protocolAddress,
                             sessionStore: bobClient.sessionStore,
                             identityStore: bobClient.identityKeyStore)
-            )
             let item = (data, message)
             bobMessages.append(item)
         }
@@ -717,9 +641,8 @@ final class SessionTests: XCTestCase {
         let aliceClient = senderClient
         let bobClient = recipientClient
 
-        var aliceSession = try aliceClient.sessionStore.loadSession(for: bobClient.protocolAddress)
         let aliceMessageData = try XCTUnwrap("Foo".data(using: .utf8))
-        let aliceMessage = try aliceSession?.encrypt(
+        let aliceMessage = try Session.encrypt(
                 data: aliceMessageData,
                 for: bobClient.protocolAddress,
                 sessionStore: aliceClient.sessionStore,
@@ -736,9 +659,8 @@ final class SessionTests: XCTestCase {
                 signedPreKeyStore: bobClient.signedPreKeyStore)
         XCTAssertEqual(result, aliceMessageData)
 
-        var bobSession = try bobClient.sessionStore.loadSession(for: aliceClient.protocolAddress)
         let bobMessageData = try XCTUnwrap("Bar".data(using: .utf8))
-        let bobMessage = try bobSession?.encrypt(
+        let bobMessage = try Session.encrypt(
                 data: bobMessageData,
                 for: aliceClient.protocolAddress,
                 sessionStore: bobClient.sessionStore,
@@ -758,9 +680,7 @@ final class SessionTests: XCTestCase {
         // Alice sends messages to Bob. And Bob receives all of them
         for index in 0..<10 {
             let data = try XCTUnwrap("Alice to Bob message \(index)".data(using: .utf8))
-
-            var aliceSession = try aliceClient.sessionStore.loadSession(for: bobClient.protocolAddress)
-            let aliceMessage = try aliceSession?.encrypt(
+            let aliceMessage = try Session.encrypt(
                     data: data,
                     for: bobClient.protocolAddress,
                     sessionStore: aliceClient.sessionStore,
@@ -781,9 +701,7 @@ final class SessionTests: XCTestCase {
         // Bob sends messages to Alice. And Alice receives all of them
         for index in 0..<10 {
             let data = try XCTUnwrap("Bob to Alice message \(index)".data(using: .utf8))
-
-            var bobSession = try bobClient.sessionStore.loadSession(for: aliceClient.protocolAddress)
-            let bobMessage = try bobSession?.encrypt(
+            let bobMessage = try Session.encrypt(
                     data: data,
                     for: aliceClient.protocolAddress,
                     sessionStore: bobClient.sessionStore,
@@ -805,15 +723,12 @@ final class SessionTests: XCTestCase {
         // Alice sends a set of messages that are delayed for some reason. Bob does not receive them
         var aliceDelayedMessages: [(Data, MessageContainer)] = []
         for index in 0..<10 {
-            var aliceSession = try aliceClient.sessionStore.loadSession(for: bobClient.protocolAddress)
             let data = try XCTUnwrap("Alice to Bob delayed \(index)".data(using: .utf8))
-            let message = try XCTUnwrap(
-                    try aliceSession?.encrypt(
+            let message = try Session.encrypt(
                             data: data,
                             for: bobClient.protocolAddress,
                             sessionStore: aliceClient.sessionStore,
                             identityStore: aliceClient.identityKeyStore)
-            )
             let item = (data, message)
             aliceDelayedMessages.append(item)
         }
@@ -821,9 +736,7 @@ final class SessionTests: XCTestCase {
         // Alice sends post-delayed messages to Bob. And these messages are received by Bob
         for index in 0..<10 {
             let data = try XCTUnwrap("Alice to Bob post delayed \(index)".data(using: .utf8))
-
-            var aliceSession = try aliceClient.sessionStore.loadSession(for: bobClient.protocolAddress)
-            let aliceMessage = try aliceSession?.encrypt(
+            let aliceMessage = try Session.encrypt(
                     data: data,
                     for: bobClient.protocolAddress,
                     sessionStore: aliceClient.sessionStore,
@@ -845,9 +758,7 @@ final class SessionTests: XCTestCase {
         // Bob sends post-delayed to Alice. And these messages are received by Bob
         for index in 0..<10 {
             let data = try XCTUnwrap("Alice to Bob post delayed \(index)".data(using: .utf8))
-
-            var bobSession = try bobClient.sessionStore.loadSession(for: aliceClient.protocolAddress)
-            let bobMessage = try bobSession?.encrypt(
+            let bobMessage = try Session.encrypt(
                     data: data,
                     for: aliceClient.protocolAddress,
                     sessionStore: bobClient.sessionStore,
@@ -886,7 +797,7 @@ final class SessionTests: XCTestCase {
         let bobPreKeyBundle = try self.setupKeysAndGetPreKeyBundle(for: bobClient)
 
         // Alice processes the Bob's updated bundle
-        aliceSession = try Session.processPreKeyBundle(
+        try Session.processPreKeyBundle(
                 bobPreKeyBundle,
                 for: bobClient.protocolAddress,
                 sessionStore: aliceClient.sessionStore,
@@ -894,7 +805,7 @@ final class SessionTests: XCTestCase {
 
         // Alice send a message to Bob after processing Bob's updated pre keys bundle
         let aliceMessageDataAfterBobPreKeysUpdate = try XCTUnwrap("Foo Bar".data(using: .utf8))
-        let aliceMessageAfterBobPreKeysUpdate = try aliceSession?.encrypt(
+        let aliceMessageAfterBobPreKeysUpdate = try Session.encrypt(
                 data: aliceMessageDataAfterBobPreKeysUpdate,
                 for: bobClient.protocolAddress,
                 sessionStore: aliceClient.sessionStore,
@@ -921,7 +832,7 @@ final class SessionTests: XCTestCase {
         let bobPreKeyBundle = try setupKeysAndGetPreKeyBundle(for: bobClient)
 
         // Alice processes the Bob's bundle
-        var aliceSession = try Session.processPreKeyBundle(
+        try Session.processPreKeyBundle(
                 bobPreKeyBundle,
                 for: bobClient.protocolAddress,
                 sessionStore: aliceClient.sessionStore,
@@ -929,14 +840,14 @@ final class SessionTests: XCTestCase {
 
         // Alice creates repeated messages for Bob
         let initialAliceMessageData = try XCTUnwrap("Foo Bar".data(using: .utf8))
-        let alicePreKeyMessage1 = try aliceSession.encrypt(
+        let alicePreKeyMessage1 = try Session.encrypt(
                 data: initialAliceMessageData,
                 for: bobClient.protocolAddress,
                 sessionStore: aliceClient.sessionStore,
                 identityStore: aliceClient.identityKeyStore)
         XCTAssertPreKeyMessage(alicePreKeyMessage1)
 
-        let alicePreKeyMessage2 = try aliceSession.encrypt(
+        let alicePreKeyMessage2 = try Session.encrypt(
                 data: initialAliceMessageData,
                 for: bobClient.protocolAddress,
                 sessionStore: aliceClient.sessionStore,
@@ -955,9 +866,7 @@ final class SessionTests: XCTestCase {
 
         // Bob sends the first message to Alice
         let bobFirstMessageData = try XCTUnwrap("Bar Foo".data(using: .utf8))
-        var bobSession = try XCTUnwrap(
-                try bobClient.sessionStore.loadSession(for: aliceClient.protocolAddress))
-        let bobFirstMessage = try bobSession.encrypt(
+        let bobFirstMessage = try Session.encrypt(
                 data: bobFirstMessageData,
                 for: aliceClient.protocolAddress,
                 sessionStore: bobClient.sessionStore,
@@ -986,9 +895,7 @@ final class SessionTests: XCTestCase {
 
         // Bob sends further message to Alice
         let bobFurtherMessageData = try XCTUnwrap("Bar Bar".data(using: .utf8))
-        bobSession = try XCTUnwrap(
-                try bobClient.sessionStore.loadSession(for: aliceClient.protocolAddress))
-        let bobFurtherMessage = try bobSession.encrypt(
+        let bobFurtherMessage = try Session.encrypt(
                 data: bobFurtherMessageData,
                 for: aliceClient.protocolAddress,
                 sessionStore: bobClient.sessionStore,
@@ -1017,14 +924,14 @@ final class SessionTests: XCTestCase {
         let bobPreKeyBundle = try setupKeysAndGetPreKeyBundle(for: bobClient)
 
         // Alice processes the Bob's bundle
-        var aliceSession = try Session.processPreKeyBundle(
+        try Session.processPreKeyBundle(
                 bobPreKeyBundle,
                 for: bobClient.protocolAddress,
                 sessionStore: aliceClient.sessionStore,
                 identityStore: aliceClient.identityKeyStore)
 
         // Bob processes the Alice's bundle
-        var bobSession = try Session.processPreKeyBundle(
+        try Session.processPreKeyBundle(
                 alicePreKeyBundle,
                 for: aliceClient.protocolAddress,
                 sessionStore: bobClient.sessionStore,
@@ -1032,7 +939,7 @@ final class SessionTests: XCTestCase {
 
         // Alice creates the first message for Bob
         let initialAliceMessageData = try XCTUnwrap("Foo Bob".data(using: .utf8))
-        let alicePreKeyMessage = try aliceSession.encrypt(
+        let alicePreKeyMessage = try Session.encrypt(
                 data: initialAliceMessageData,
                 for: bobClient.protocolAddress,
                 sessionStore: aliceClient.sessionStore,
@@ -1041,7 +948,7 @@ final class SessionTests: XCTestCase {
 
         // Bob creates the first message for Alice
         let initialBobMessageData = try XCTUnwrap("Bar Alice".data(using: .utf8))
-        let bobPreKeyMessage = try bobSession.encrypt(
+        let bobPreKeyMessage = try Session.encrypt(
                 data: initialBobMessageData,
                 for: aliceClient.protocolAddress,
                 sessionStore: bobClient.sessionStore,
@@ -1076,9 +983,7 @@ final class SessionTests: XCTestCase {
 
         // Alice sends further message to Bob
         let aliceFurtherMessageData = try XCTUnwrap("Bar Bar".data(using: .utf8))
-        aliceSession = try XCTUnwrap(
-                try aliceClient.sessionStore.loadSession(for: bobClient.protocolAddress))
-        let aliceFurtherMessage = try aliceSession.encrypt(
+        let aliceFurtherMessage = try Session.encrypt(
                 data: aliceFurtherMessageData,
                 for: bobClient.protocolAddress,
                 sessionStore: aliceClient.sessionStore,
@@ -1099,9 +1004,7 @@ final class SessionTests: XCTestCase {
 
         // Bob sends further message to Alice
         let bobFurtherMessageData = try XCTUnwrap("Foo Foo".data(using: .utf8))
-        bobSession = try XCTUnwrap(
-                try bobClient.sessionStore.loadSession(for: aliceClient.protocolAddress))
-        let bobFurtherMessage = try bobSession.encrypt(
+        let bobFurtherMessage = try Session.encrypt(
                 data: bobFurtherMessageData,
                 for: aliceClient.protocolAddress,
                 sessionStore: bobClient.sessionStore,
@@ -1132,14 +1035,14 @@ final class SessionTests: XCTestCase {
         let bobPreKeyBundle = try setupKeysAndGetPreKeyBundle(for: bobClient)
 
         // Alice processes the Bob's bundle
-        var aliceSession = try Session.processPreKeyBundle(
+        try Session.processPreKeyBundle(
                 bobPreKeyBundle,
                 for: bobClient.protocolAddress,
                 sessionStore: aliceClient.sessionStore,
                 identityStore: aliceClient.identityKeyStore)
 
         // Bob processes the Alice's bundle
-        var bobSession = try Session.processPreKeyBundle(
+        try Session.processPreKeyBundle(
                 alicePreKeyBundle,
                 for: aliceClient.protocolAddress,
                 sessionStore: bobClient.sessionStore,
@@ -1147,7 +1050,7 @@ final class SessionTests: XCTestCase {
 
         // Alice creates the first message for Bob
         let initialAliceMessageData = try XCTUnwrap("Foo Bob".data(using: .utf8))
-        let alicePreKeyMessage = try aliceSession.encrypt(
+        let alicePreKeyMessage = try Session.encrypt(
                 data: initialAliceMessageData,
                 for: bobClient.protocolAddress,
                 sessionStore: aliceClient.sessionStore,
@@ -1156,7 +1059,7 @@ final class SessionTests: XCTestCase {
 
         // Bob creates the first message for Alice
         // But this pre key message was lost for some reason (i.e. Alice did not receive it)
-        let bobPreKeyMessage = try bobSession.encrypt(
+        let bobPreKeyMessage = try Session.encrypt(
                 data: try XCTUnwrap("Bar Alice".data(using: .utf8)),
                 for: aliceClient.protocolAddress,
                 sessionStore: bobClient.sessionStore,
@@ -1177,9 +1080,7 @@ final class SessionTests: XCTestCase {
 
         // Alice sends further message to Bob
         let aliceFurtherMessageData = try XCTUnwrap("Bar Bar".data(using: .utf8))
-        aliceSession = try XCTUnwrap(
-                try aliceClient.sessionStore.loadSession(for: bobClient.protocolAddress))
-        let aliceFurtherMessage = try aliceSession.encrypt(
+        let aliceFurtherMessage = try Session.encrypt(
                 data: aliceFurtherMessageData,
                 for: bobClient.protocolAddress,
                 sessionStore: aliceClient.sessionStore,
@@ -1200,9 +1101,7 @@ final class SessionTests: XCTestCase {
 
         // Bob sends further message to Alice
         let bobFurtherMessageData = try XCTUnwrap("Foo Foo".data(using: .utf8))
-        bobSession = try XCTUnwrap(
-                try bobClient.sessionStore.loadSession(for: aliceClient.protocolAddress))
-        let bobFurtherMessage = try bobSession.encrypt(
+        let bobFurtherMessage = try Session.encrypt(
                 data: bobFurtherMessageData,
                 for: aliceClient.protocolAddress,
                 sessionStore: bobClient.sessionStore,
@@ -1233,14 +1132,14 @@ final class SessionTests: XCTestCase {
         let bobPreKeyBundle = try setupKeysAndGetPreKeyBundle(for: bobClient)
 
         // Alice processes the Bob's bundle
-        var aliceSession = try Session.processPreKeyBundle(
+        try Session.processPreKeyBundle(
                 bobPreKeyBundle,
                 for: bobClient.protocolAddress,
                 sessionStore: aliceClient.sessionStore,
                 identityStore: aliceClient.identityKeyStore)
 
         // Bob processes the Alice's bundle
-        var bobSession = try Session.processPreKeyBundle(
+        try Session.processPreKeyBundle(
                 alicePreKeyBundle,
                 for: aliceClient.protocolAddress,
                 sessionStore: bobClient.sessionStore,
@@ -1248,7 +1147,7 @@ final class SessionTests: XCTestCase {
 
         // Alice creates the first message for Bob
         let initialAliceMessageData = try XCTUnwrap("Bob first Msg".data(using: .utf8))
-        let alicePreKeyMessage = try aliceSession.encrypt(
+        let alicePreKeyMessage = try Session.encrypt(
                 data: initialAliceMessageData,
                 for: bobClient.protocolAddress,
                 sessionStore: aliceClient.sessionStore,
@@ -1257,7 +1156,7 @@ final class SessionTests: XCTestCase {
 
         // Bob creates the first message for Alice
         let initialBobMessageData = try XCTUnwrap("Alice first Msg".data(using: .utf8))
-        let bobPreKeyMessage = try bobSession.encrypt(
+        let bobPreKeyMessage = try Session.encrypt(
                 data: initialBobMessageData,
                 for: aliceClient.protocolAddress,
                 sessionStore: bobClient.sessionStore,
@@ -1293,9 +1192,7 @@ final class SessionTests: XCTestCase {
         // Alice encrypts further message to Bob
         // But this secure message was lost for some reason (i.e. Bob did not receive/decrypt it)
         let aliceFurtherMessageData = try XCTUnwrap("Bar Bar".data(using: .utf8))
-        aliceSession = try XCTUnwrap(
-                try aliceClient.sessionStore.loadSession(for: bobClient.protocolAddress))
-        let aliceFurtherMessage = try aliceSession.encrypt(
+        let aliceFurtherMessage = try Session.encrypt(
                 data: aliceFurtherMessageData,
                 for: bobClient.protocolAddress,
                 sessionStore: aliceClient.sessionStore,
@@ -1304,9 +1201,7 @@ final class SessionTests: XCTestCase {
 
         // Bob sends further message to Alice
         let bobFurtherMessageData = try XCTUnwrap("Foo Foo".data(using: .utf8))
-        bobSession = try XCTUnwrap(
-                try bobClient.sessionStore.loadSession(for: aliceClient.protocolAddress))
-        let bobFurtherMessage = try bobSession.encrypt(
+        let bobFurtherMessage = try Session.encrypt(
                 data: bobFurtherMessageData,
                 for: aliceClient.protocolAddress,
                 sessionStore: bobClient.sessionStore,
@@ -1343,14 +1238,14 @@ final class SessionTests: XCTestCase {
         let bobPreKeyBundle = try setupKeysAndGetPreKeyBundle(for: bobClient)
 
         // Alice processes the Bob's bundle
-        var aliceSession = try Session.processPreKeyBundle(
+        try Session.processPreKeyBundle(
                 bobPreKeyBundle,
                 for: bobClient.protocolAddress,
                 sessionStore: aliceClient.sessionStore,
                 identityStore: aliceClient.identityKeyStore)
 
         // Alice creates the message for Bob
-        let lostMessageForBob = try aliceSession.encrypt(
+        let lostMessageForBob = try Session.encrypt(
                 data: try XCTUnwrap("Lost message for Bob".data(using: .utf8)),
                 for: bobClient.protocolAddress,
                 sessionStore: aliceClient.sessionStore,
@@ -1367,14 +1262,14 @@ final class SessionTests: XCTestCase {
             let bobPreKeyBundle = try setupKeysAndGetPreKeyBundle(for: bobClient)
 
             // Alice processes the Bob's bundle
-            var aliceSession = try Session.processPreKeyBundle(
+            try Session.processPreKeyBundle(
                     bobPreKeyBundle,
                     for: bobClient.protocolAddress,
                     sessionStore: aliceClient.sessionStore,
                     identityStore: aliceClient.identityKeyStore)
 
             // Bob processes the Alice's bundle
-            var bobSession = try Session.processPreKeyBundle(
+            try Session.processPreKeyBundle(
                     alicePreKeyBundle,
                     for: aliceClient.protocolAddress,
                     sessionStore: bobClient.sessionStore,
@@ -1382,7 +1277,7 @@ final class SessionTests: XCTestCase {
 
             // Alice creates the message for Bob
             let aliceMessageData = try XCTUnwrap("Hi Bob \(index)".data(using: .utf8))
-            let alicePreKeyMessage = try aliceSession.encrypt(
+            let alicePreKeyMessage = try Session.encrypt(
                     data: aliceMessageData,
                     for: bobClient.protocolAddress,
                     sessionStore: aliceClient.sessionStore,
@@ -1391,7 +1286,7 @@ final class SessionTests: XCTestCase {
 
             // Bob creates the message for Alice
             let bobMessageData = try XCTUnwrap("Hi Alice \(index)".data(using: .utf8))
-            let bobPreKeyMessage = try bobSession.encrypt(
+            let bobPreKeyMessage = try Session.encrypt(
                     data: bobMessageData,
                     for: aliceClient.protocolAddress,
                     sessionStore: bobClient.sessionStore,
@@ -1425,10 +1320,8 @@ final class SessionTests: XCTestCase {
 
         for index in 0..<50 {
             // Alice creates the further messages for Bob
-            var aliceSession = try XCTUnwrap(
-                    try aliceClient.sessionStore.loadSession(for: bobClient.protocolAddress))
             let aliceMessageData = try XCTUnwrap("Foo Bob \(index)".data(using: .utf8))
-            let aliceSecureMessage = try aliceSession.encrypt(
+            let aliceSecureMessage = try Session.encrypt(
                     data: aliceMessageData,
                     for: bobClient.protocolAddress,
                     sessionStore: aliceClient.sessionStore,
@@ -1436,10 +1329,8 @@ final class SessionTests: XCTestCase {
             XCTAssertSecureMessage(aliceSecureMessage)
 
             // Bob creates the further messages for Alice
-            var bobSession = try XCTUnwrap(
-                    try bobClient.sessionStore.loadSession(for: aliceClient.protocolAddress))
             let bobMessageData = try XCTUnwrap("Bar Alice \(index)".data(using: .utf8))
-            let bobSecureMessage = try bobSession.encrypt(
+            let bobSecureMessage = try Session.encrypt(
                     data: bobMessageData,
                     for: aliceClient.protocolAddress,
                     sessionStore: bobClient.sessionStore,
@@ -1471,10 +1362,8 @@ final class SessionTests: XCTestCase {
             XCTAssertFalse(try self.isClientsSessionBaseKeyEqual(aliceClient, bobClient))
         }
 
-        var aliceSession = try XCTUnwrap(
-                try aliceClient.sessionStore.loadSession(for: bobClient.protocolAddress))
         let aliceMessageData = try XCTUnwrap("Foo Bar".data(using: .utf8))
-        let aliceSecureMessage = try aliceSession.encrypt(
+        let aliceSecureMessage = try Session.encrypt(
                 data: aliceMessageData,
                 for: bobClient.protocolAddress,
                 sessionStore: aliceClient.sessionStore,
@@ -1482,10 +1371,8 @@ final class SessionTests: XCTestCase {
         XCTAssertSecureMessage(aliceSecureMessage)
         XCTAssertFalse(try self.isClientsSessionBaseKeyEqual(aliceClient, bobClient))
 
-        var bobSession = try XCTUnwrap(
-                try bobClient.sessionStore.loadSession(for: aliceClient.protocolAddress))
         let bobMessageData = try XCTUnwrap("Bar Foo".data(using: .utf8))
-        let bobSecureMessage = try bobSession.encrypt(
+        let bobSecureMessage = try Session.encrypt(
                 data: bobMessageData,
                 for: aliceClient.protocolAddress,
                 sessionStore: bobClient.sessionStore,
@@ -1517,6 +1404,56 @@ final class SessionTests: XCTestCase {
         let bobAddress = bobClient.protocolAddress
         let loadSession = try bobClient.sessionStore.loadSession(for: bobAddress)
         XCTAssertEqual(loadSession, session)
+    }
+    
+    func testEncryptWhenSessionNotExists() throws {
+        let senderClient = try TestClient(userId: UUID())  // Alice
+        let recipientClient = try TestClient(userId: UUID())  // Bob
+        let invalidAddress = ProtocolAddress(userId: UUID(), deviceId: UUID())
+        try initializeSession(senderClient: senderClient, recipientClient: recipientClient)
+
+        do {
+            let text = "Foo"
+            let message = try Session.encrypt(
+                data: try XCTUnwrap(text.data(using: .utf8)),
+                for: invalidAddress,
+                sessionStore: senderClient.sessionStore,
+                identityStore: senderClient.identityKeyStore)
+            XCTFail("Encrypt should fail: \(message)")
+        } catch DXError.sessionNotFound {
+            return
+        } catch {
+            XCTFail("Invalid error type: \(error)")
+        }
+    }
+    
+    func testDecryptWhenSessionNotExists() throws {
+        let senderClient = try TestClient(userId: UUID())  // Alice
+        let recipientClient = try TestClient(userId: UUID())  // Bob
+        let invalidAddress = ProtocolAddress(userId: UUID(), deviceId: UUID())
+        try initializeSession(senderClient: senderClient, recipientClient: recipientClient)
+
+        let text = "Foo"
+        let encryptedMessage = try Session.encrypt(
+            data: try XCTUnwrap(text.data(using: .utf8)),
+            for: recipientClient.protocolAddress,
+            sessionStore: senderClient.sessionStore,
+            identityStore: senderClient.identityKeyStore)
+
+        do {
+            let decryptedMessage = try Session.decrypt(
+                    message: encryptedMessage,
+                    from: invalidAddress,
+                    sessionStore: recipientClient.sessionStore,
+                    identityStore: recipientClient.identityKeyStore,
+                    preKeyStore: recipientClient.preKeyStore,
+                    signedPreKeyStore: recipientClient.signedPreKeyStore)
+            XCTFail("Decrypt should fail: \(decryptedMessage)")
+        } catch DXError.sessionNotFound {
+            return
+        } catch {
+            XCTFail("Invalid error type: \(error)")
+        }
     }
 }
 
@@ -1562,31 +1499,30 @@ extension SessionTests {
         return bundle
     }
 
-    func initializeSession(
-            senderClient: TestClient,
-            recipientClient: TestClient
-    ) throws {
+    func initializeSession(senderClient: TestClient, recipientClient: TestClient) throws {
         let recipientBundle = try self.setupKeysAndGetPreKeyBundle(for: recipientClient)
+        let aliceAddress = senderClient.protocolAddress
+        let bobAddress = recipientClient.protocolAddress
 
         // Alice processes the bundle:
-        var aliceSession = try Session.processPreKeyBundle(
+        try Session.processPreKeyBundle(
                 recipientBundle,
-                for: recipientClient.protocolAddress,
+                for: bobAddress,
                 sessionStore: senderClient.sessionStore,
                 identityStore: senderClient.identityKeyStore)
 
         // Alice creates the first message (Pre Key message)
         let initialMessageData = try XCTUnwrap("Bar".data(using: .utf8))
-        let aliceMessage = try aliceSession.encrypt(
+        let aliceMessage = try Session.encrypt(
                 data: initialMessageData,
-                for: recipientClient.protocolAddress,
+                for: bobAddress,
                 sessionStore: senderClient.sessionStore,
                 identityStore: senderClient.identityKeyStore)
 
         // Bob decrypts the first message (Pre Key message) from Alice
         var result = try Session.decrypt(
                 message: aliceMessage,
-                from: senderClient.protocolAddress,
+                from: aliceAddress,
                 sessionStore: recipientClient.sessionStore,
                 identityStore: recipientClient.identityKeyStore,
                 preKeyStore: recipientClient.preKeyStore,
@@ -1594,19 +1530,17 @@ extension SessionTests {
         XCTAssertEqual(result, initialMessageData)
 
         // Finally, Bob sends a message back to acknowledge the pre-key.
-        let aliceAddress = senderClient.protocolAddress
-        var bobSession = try XCTUnwrap(try recipientClient.sessionStore.loadSession(for: aliceAddress))
         let bobReplyData = try XCTUnwrap("Foo".data(using: .utf8))
-        let bobMessage = try bobSession.encrypt(
+        let bobMessage = try Session.encrypt(
                 data: bobReplyData,
-                for: senderClient.protocolAddress,
+                for: aliceAddress,
                 sessionStore: recipientClient.sessionStore,
                 identityStore: recipientClient.identityKeyStore)
 
         // Alice decrypts first message from Bob (with acknowledge of the pre-key)
         result = try Session.decrypt(
                 message: bobMessage,
-                from: recipientClient.protocolAddress,
+                from: bobAddress,
                 sessionStore: senderClient.sessionStore,
                 identityStore: senderClient.identityKeyStore,
                 preKeyStore: senderClient.preKeyStore,
