@@ -231,20 +231,24 @@ public struct Session: Codable {
     ///     - identityStore: The identity store.
     ///
     /// - Returns: The encrypted message container.
-    public mutating func encrypt(data: Data,
-                                 for address: ProtocolAddress,
-                                 sessionStore: SessionStorable,
-                                 identityStore: IdentityKeyStorable) throws -> MessageContainer {
+    public static func encrypt(data: Data,
+                               for address: ProtocolAddress,
+                               sessionStore: SessionStorable,
+                               identityStore: IdentityKeyStorable) throws -> MessageContainer {
         let lock = SessionLock(address: address)
         lock.lock()
         defer { lock.unlock() }
 
-        let result = try self.state.encrypt(
-                data: data,
-                sessionStore: sessionStore,
-                identityStore: identityStore)
-        try sessionStore.storeSession(self, for: address)
-
+        guard var session = try sessionStore.loadSession(for: address) else {
+            throw DXError.sessionNotFound("Failed to find session while encrypting message")
+        }
+        
+        let result = try session.state.encrypt(
+            data: data,
+            sessionStore: sessionStore,
+            identityStore: identityStore)
+        try sessionStore.storeSession(session, for: address)
+        
         return result
     }
 
