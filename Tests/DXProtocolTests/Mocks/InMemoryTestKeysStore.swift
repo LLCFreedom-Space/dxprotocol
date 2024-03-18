@@ -161,7 +161,7 @@ final class InMemoryTestKeysStore: IdentityKeyStorable, PreKeyStorable, SignedPr
     
     // MARK: - Private
     
-    func lock(for address: ProtocolAddress) -> NSRecursiveLock {
+    private func lock(for address: ProtocolAddress) -> NSRecursiveLock {
         self.queue.sync {
             var result: NSRecursiveLock
             if let lock = self.storage[address] {
@@ -173,5 +173,4 @@ final class InMemoryTestKeysStore: IdentityKeyStorable, PreKeyStorable, SignedPr
             return result
         }
     }
-
 }
