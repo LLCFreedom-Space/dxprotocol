@@ -32,6 +32,9 @@ final class InMemoryTestKeysStore: IdentityKeyStorable, PreKeyStorable, SignedPr
     private var prekeyMap: [UUID: OneTimePreKeyPair] = [:]
     private var signedPrekeyMap: [UUID: SignedPreKeyPair] = [:]
     private var sessionMap: [ProtocolAddress: Session] = [:]
+    
+    private let queue = DispatchQueue(label: "TestKeysStoreQueue")
+    private var storage: [ProtocolAddress: NSRecursiveLock] = [:]
 
     private var isIdentityTrusted: Bool
 
@@ -128,6 +131,16 @@ final class InMemoryTestKeysStore: IdentityKeyStorable, PreKeyStorable, SignedPr
     }
 
     // MARK: - SessionStorable
+    
+    public func lockSession(for address: ProtocolAddress) throws {
+        let lock = self.lock(for: address)
+        lock.lock()
+    }
+    
+    public func unlockSession(for address: ProtocolAddress) {
+        let lock = self.lock(for: address)
+        lock.unlock()
+    }
 
     public func loadSession(for address: ProtocolAddress) throws -> Session? {
         return sessionMap[address]
@@ -144,5 +157,20 @@ final class InMemoryTestKeysStore: IdentityKeyStorable, PreKeyStorable, SignedPr
 
     public func storeSession(_ record: Session, for address: ProtocolAddress) throws {
         sessionMap[address] = record
+    }
+    
+    // MARK: - Private
+    
+    private func lock(for address: ProtocolAddress) -> NSRecursiveLock {
+        self.queue.sync {
+            var result: NSRecursiveLock
+            if let lock = self.storage[address] {
+                result = lock
+            } else {
+                result = NSRecursiveLock()
+                self.storage[address] = result
+            }
+            return result
+        }
     }
 }

@@ -109,9 +109,8 @@ public struct Session: Codable {
 
         try identityStore.saveIdentity(theirIdentityKey, for: address)
 
-        let lock = SessionLock(address: address)
-        lock.lock()
-        defer { lock.unlock() }
+        try sessionStore.lockSession(for: address)
+        defer { sessionStore.unlockSession(for: address) }
 
         var session = try sessionStore.loadSession(for: address)
         if nil == session {
@@ -159,9 +158,8 @@ public struct Session: Codable {
             throw DXError.untrustedIdentity("Abort processing PreKey Message for untrusted identity")
         }
         
-        let lock = SessionLock(address: address)
-        lock.lock()
-        defer { lock.unlock() }
+        try sessionStore.lockSession(for: address)
+        defer { sessionStore.unlockSession(for: address) }
 
         let theirBaseKey = message.senderBaseKey
         let messageVersion = Int(message.messageVersion)
@@ -235,9 +233,8 @@ public struct Session: Codable {
                                for address: ProtocolAddress,
                                sessionStore: SessionStorable,
                                identityStore: IdentityKeyStorable) throws -> MessageContainer {
-        let lock = SessionLock(address: address)
-        lock.lock()
-        defer { lock.unlock() }
+        try sessionStore.lockSession(for: address)
+        defer { sessionStore.unlockSession(for: address) }
 
         guard var session = try sessionStore.loadSession(for: address) else {
             throw DXError.sessionNotFound("Failed to find session while encrypting message")
@@ -327,9 +324,8 @@ extension Session {
                                 identityStore: IdentityKeyStorable,
                                 preKeyStore: PreKeyStorable,
                                 signedPreKeyStore: SignedPreKeyStorable) throws -> Data {
-        let lock = SessionLock(address: address)
-        lock.lock()
-        defer { lock.unlock() }
+        try sessionStore.lockSession(for: address)
+        defer { sessionStore.unlockSession(for: address) }
 
         var session = try self.processPreKeyMessage(
                 preKeyMessage,
@@ -367,9 +363,8 @@ extension Session {
                                 from address: ProtocolAddress,
                                 sessionStore: SessionStorable,
                                 identityStore: IdentityKeyStorable) throws -> Data {
-        let lock = SessionLock(address: address)
-        lock.lock()
-        defer { lock.unlock() }
+        try sessionStore.lockSession(for: address)
+        defer { sessionStore.unlockSession(for: address) }
 
         guard var session = try sessionStore.loadSession(for: address) else {
             throw DXError.sessionNotFound("Failed to find session while decrypting message")

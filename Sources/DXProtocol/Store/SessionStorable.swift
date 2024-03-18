@@ -27,6 +27,15 @@ import Foundation
 /// `SessionStorable` protocol declares a set of methods allowing to store
 /// the sessions according to DX Protocol
 public protocol SessionStorable: AnyObject {
+    /// Attempts to acquire a lock on session, blocking an execution until the lock can be acquired
+    /// - Parameter address: The address of the remote client the session is associated with
+    /// - Throws: Throws if the operation failed to be performed
+    func lockSession(for address: ProtocolAddress) throws
+    
+    /// Relinquishes a previously acquired lock on session
+    /// - Parameter address: The address of the remote client the session is associated with
+    func unlockSession(for address: ProtocolAddress)
+
     /// Returns a session for a given user's address.
     /// - Parameter address: The address of the remote client
     /// - Returns: The session, or nil if session does not exist
