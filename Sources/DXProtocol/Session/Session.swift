@@ -334,7 +334,6 @@ extension Session {
                 identityStore: identityStore,
                 preKeyStore: preKeyStore,
                 signedPreKeyStore: signedPreKeyStore)
-        // This is 'decrypt_message_with_record'
         let result = try session.decryptMessage(preKeyMessage.secureMessage)
 
         try sessionStore.storeSession(session, for: address)
@@ -380,7 +379,6 @@ extension Session {
             throw DXError.untrustedIdentity("Abort decrypting PreKeyMessage for untrusted identity")
         }
 
-        // This is 'decrypt_message_with_record'
         let result = try session.decryptMessage(secureMessage)
 
         try sessionStore.storeSession(session, for: address)
@@ -399,6 +397,7 @@ extension Session {
     /// - Returns: The decrypted data.
     private mutating func decryptMessage(_ message: SecureMessage) throws -> Data {
         var result = Data()
+        var errors = [Error]()
 
         do {
             // We MUST discard changes of 'state' if decryption of message fails
@@ -406,6 +405,8 @@ extension Session {
             result = try state.decryptMessage(message)
             self.state = state
         } catch let error {
+            errors.append(error)
+
             if case DXError.duplicatedMessage = error {
                 // This message has been already processed.
                 // Do not try previous states to decrypt it
@@ -423,6 +424,8 @@ extension Session {
                     self.promotePreviousState(state: olderState, index: index)
                     break
                 } catch let error {
+                    errors.append(error)
+
                     // This code is not covered by tests
                     if case DXError.duplicatedMessage = error {
                         // This message has been already processed.
@@ -431,6 +434,12 @@ extension Session {
                     }
                 }
             }
+        }
+
+        if result.isEmpty && !errors.isEmpty {
+            let protocolErrors = errors.compactMap { $0 as? DXError }
+            let error = protocolErrors.first ?? errors[0]
+            throw error
         }
 
         if result.isEmpty {
@@ -459,13 +468,13 @@ extension Session {
 
     /// Checks if the session contains active current state.
     /// - Returns: True if session contains active current state. False otherwise
-    func hasCurrentState() -> Bool {
+    public func hasCurrentState() -> Bool {
         return !self.state.archived
     }
 
     // TODO: - Add tests on error
     /// Archives the current active state. For example, this functionality might be used to manage stale devices
-    mutating func archiveCurrentState() {
+    public mutating func archiveCurrentState() {
         guard !self.state.archived else {
             return
         }

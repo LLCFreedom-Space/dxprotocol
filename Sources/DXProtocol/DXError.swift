@@ -77,8 +77,8 @@ public enum DXError: Error, Equatable {
     case invalidSenderKeySession(distributionId: UUID, message: String)
     /// The message has already been sent.
     case duplicatedMessage(String)
-    /// The signature verification failed.
-    case verificationFailed(String)
+    /// The MAC verification failed.
+    case messageVerificationFailed(String)
     /// An error occurred in a callback.
     case callbackError(String)
     /// An unknown error occurred.
