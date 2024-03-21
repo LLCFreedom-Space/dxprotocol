@@ -1455,6 +1455,140 @@ final class SessionTests: XCTestCase {
             XCTFail("Invalid error type: \(error)")
         }
     }
+    
+    func testInteractionWhenLostSessionChanges() throws {
+        let senderClient = try TestClient(userId: UUID())  // Alice
+        let recipientClient = try TestClient(userId: UUID())  // Bob
+        try initializeSession(senderClient: senderClient, recipientClient: recipientClient)
+
+        let aliceClient = senderClient
+        let bobClient = recipientClient
+        
+        // Archive session state so that we have a non-empty list of previous states
+        var session = try bobClient.sessionStore.loadSession(for: aliceClient.protocolAddress)
+        session?.archiveCurrentState()
+        try bobClient.sessionStore.storeSession(
+            try XCTUnwrap(session),
+            for: aliceClient.protocolAddress)
+
+        // The code below will do the next ratchet step
+        // {
+        // Alice sends one more message
+        let data = try XCTUnwrap("From Alice".data(using: .utf8))
+        let message = try Session.encrypt(
+            data: data,
+            for: bobClient.protocolAddress,
+            sessionStore: aliceClient.sessionStore,
+            identityStore: aliceClient.identityKeyStore
+        )
+        let result = try Session.decrypt(
+            message: message,
+            from: aliceClient.protocolAddress,
+            sessionStore: bobClient.sessionStore,
+            identityStore: bobClient.identityKeyStore,
+            preKeyStore: bobClient.preKeyStore,
+            signedPreKeyStore: bobClient.signedPreKeyStore
+        )
+        XCTAssertEqual(result, data)
+        
+        // Bob sends reply to Alice
+        let replyData = try XCTUnwrap("From Bob".data(using: .utf8))
+        let replyMessage = try Session.encrypt(
+            data: replyData,
+            for: aliceClient.protocolAddress,
+            sessionStore: bobClient.sessionStore,
+            identityStore: bobClient.identityKeyStore)
+        
+        let decryptReplyMessage = try Session.decrypt(
+            message: replyMessage,
+            from: bobClient.protocolAddress,
+            sessionStore: aliceClient.sessionStore,
+            identityStore: aliceClient.identityKeyStore,
+            preKeyStore: aliceClient.preKeyStore,
+            signedPreKeyStore: aliceClient.signedPreKeyStore)
+        XCTAssertEqual(decryptReplyMessage, replyData)
+        // }
+        
+        // We will use this session to imitate loosing of session's changes
+        let outdatedSession = try bobClient.sessionStore.loadSession(for: aliceClient.protocolAddress)
+
+        // The code below will do further ratchet step (session's changes)
+        // {
+        let secondData = try XCTUnwrap("Alice second message".data(using: .utf8))
+        let secondMessage = try Session.encrypt(
+            data: secondData,
+            for: bobClient.protocolAddress,
+            sessionStore: aliceClient.sessionStore,
+            identityStore: aliceClient.identityKeyStore)
+        let decryptSecondResult = try Session.decrypt(
+            message: secondMessage,
+            from: aliceClient.protocolAddress,
+            sessionStore: bobClient.sessionStore,
+            identityStore: bobClient.identityKeyStore,
+            preKeyStore: bobClient.preKeyStore,
+            signedPreKeyStore: bobClient.signedPreKeyStore)
+        XCTAssertEqual(decryptSecondResult, secondData)
+        
+        let replySecondData = try XCTUnwrap("Bob reply on second message".data(using: .utf8))
+        let replySecondMessage = try Session.encrypt(
+            data: replySecondData,
+            for: aliceClient.protocolAddress,
+            sessionStore: bobClient.sessionStore,
+            identityStore: bobClient.identityKeyStore)
+        let decryptReplySecondResult = try Session.decrypt(
+            message: replySecondMessage,
+            from: bobClient.protocolAddress,
+            sessionStore: aliceClient.sessionStore,
+            identityStore: aliceClient.identityKeyStore,
+            preKeyStore: aliceClient.preKeyStore,
+            signedPreKeyStore: aliceClient.signedPreKeyStore)
+        XCTAssertEqual(decryptReplySecondResult, replySecondData)
+        
+        // Actually test
+        
+        // Imitate like we lost last changes made to session
+        try bobClient.sessionStore.storeSession(
+            try XCTUnwrap(outdatedSession),
+            for: aliceClient.protocolAddress)
+        
+        // Test Bob can send message to Alice after lost session changes
+        let bobDataAfterLost = try XCTUnwrap("Message From Bob after lost".data(using: .utf8))
+        let bobMessageAfterLost = try Session.encrypt(
+                        data: bobDataAfterLost,
+                        for: aliceClient.protocolAddress,
+                        sessionStore: bobClient.sessionStore,
+                        identityStore: bobClient.identityKeyStore)
+        let aliceDecryptAfterLost = try Session.decrypt(
+                message: bobMessageAfterLost,
+                from: bobClient.protocolAddress,
+                sessionStore: aliceClient.sessionStore,
+                identityStore: aliceClient.identityKeyStore,
+                preKeyStore: aliceClient.preKeyStore,
+                signedPreKeyStore: aliceClient.signedPreKeyStore)
+        XCTAssertEqual(aliceDecryptAfterLost, bobDataAfterLost)
+        
+        // Test Bob can't receive message from Alice
+        let aliceThirdMessageData = try XCTUnwrap("Alice third message".data(using: .utf8))
+        let aliceThirdMessage = try Session.encrypt(
+            data: aliceThirdMessageData,
+            for: bobClient.protocolAddress,
+            sessionStore: aliceClient.sessionStore,
+            identityStore: aliceClient.identityKeyStore)
+        do {
+            let decryptThirdMessageResult = try Session.decrypt(
+                message: aliceThirdMessage,
+                from: aliceClient.protocolAddress,
+                sessionStore: bobClient.sessionStore,
+                identityStore: bobClient.identityKeyStore,
+                preKeyStore: bobClient.preKeyStore,
+                signedPreKeyStore: bobClient.signedPreKeyStore)
+            XCTFail("Third message should not be decrypted due loosing session changes")
+            XCTAssertEqual(decryptThirdMessageResult, aliceThirdMessageData)
+        } catch DXError.messageVerificationFailed {
+        } catch {
+            XCTFail("Incorrect error thrown")
+        }
+    }
 }
 
 extension SessionTests {

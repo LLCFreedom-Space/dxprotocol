@@ -235,7 +235,7 @@ struct SessionState: Codable {
                 receiverIdentityKey: localIdentityKey,
                 macKey: messageKeys.macKey)
         guard isMacValid else {
-            throw DXError.invalidMessage("MAC verification failed")
+            throw DXError.messageVerificationFailed("MAC verification failed")
         }
 
         // Source - https://developer.apple.com/forums/thread/687212
