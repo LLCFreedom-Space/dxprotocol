@@ -531,6 +531,17 @@ final class SessionTests: XCTestCase {
         XCTAssertFalse(session.hasCurrentState())
         XCTAssertEqual(session.previousSessionStates.count, 1)
     }
+    
+    func testCurrentSenderRatchetKey() throws {
+        let senderClient = try TestClient(userId: UUID())  // Alice
+        let recipientClient = try TestClient(userId: UUID())  // Bob
+        try initializeSession(senderClient: senderClient, recipientClient: recipientClient)
+
+        let session = try recipientClient.sessionStore.loadSession(for: senderClient.protocolAddress)
+        let expectedRatchetKey = try XCTUnwrap(session?.state.senderChain.ratchetKeyPair.publicKey)
+        XCTAssertEqual(expectedRatchetKey, session?.currentSenderRatchetKey())
+    }
+    
     // FIXME: - Need fix
     func testBasicSessionInteraction() throws {
         let senderClient = try TestClient(userId: UUID())  // Alice
