@@ -27,6 +27,48 @@ import XCTest
 @testable import DXProtocol
 
 final class MessageContainerTests: XCTestCase {
+    func testSenderRatchetKey() throws {
+        let aliceRatchetKey = try KeyPair().publicKey
+        let aliceBaseKey = try KeyPair().publicKey
+        let aliceIdentityKey = IdentityKeyPublic(publicKey: try KeyPair().publicKey)
+        let bobIdentityKey = IdentityKeyPublic(publicKey: try KeyPair().publicKey)
+        let macKeyData = Data([
+            0xce, 0x41, 0x35, 0xc2, 0x19, 0xb1, 0xdb, 0xe2, 0xfa, 0x66, 0x6d, 0xdf, 0xb3, 0x9a, 0x7e,
+            0x46, 0x7b, 0xd8, 0x33, 0xf9, 0xcf, 0x30, 0xd9, 0x9d, 0x96, 0x0e, 0xe7, 0x38, 0x07, 0x25,
+            0xa7, 0xf1
+        ])
+
+        let registrationId = UUID()
+        let oneTimePreKeyId = UUID()
+        let signedPreKeyId = UUID()
+
+        let content = "DXProtocolSecureMessage"
+        let data = Data(content.utf8)
+
+        let secureMessage = try SecureMessage(
+                messageVersion: DXProtocolConstants.cipertextMessageCurrentVersion,
+                macKey: macKeyData,
+                senderRatchetKey: aliceRatchetKey,
+                counter: 3,
+                previousCounter: 2,
+                encrypted: data,
+                senderIdentityKey: aliceIdentityKey,
+                receiverIdentityKey: bobIdentityKey)
+        var container = MessageContainer.secureMessage(secureMessage)
+        XCTAssertEqual(container.senderRatchetKey, aliceRatchetKey)
+        
+        let preKeyMessage = try PreKeySecureMessage(
+                messageVersion: DXProtocolConstants.cipertextMessageCurrentVersion,
+                registrationId: registrationId,
+                oneTimePreKeyId: oneTimePreKeyId,
+                signedPreKeyId: signedPreKeyId,
+                senderBaseKey: aliceBaseKey,
+                senderIdentityKey: aliceIdentityKey,
+                secureMessage: secureMessage)
+        container = MessageContainer.preKeySecureMessage(preKeyMessage)
+        XCTAssertEqual(container.senderRatchetKey, aliceRatchetKey)
+    }
+    
     func testSerializeDeserializeSecureMessage() throws {
         let aliceRatchetKey = try KeyPair().publicKey
         let aliceIdentityKey = IdentityKeyPublic(publicKey: try KeyPair().publicKey)
