@@ -47,6 +47,20 @@ extension MessageContainer: Codable {
         case secureMessage
         case preKeySecureMessage
     }
+    
+    /// The public key of the ratchet key pair from sending chain which was used to encrypt this message
+    public var senderRatchetKey: PublicKey {
+        let result: PublicKey
+        
+        switch self {
+        case .secureMessage(let message):
+            result = message.senderRatchetKey
+        case .preKeySecureMessage(let message):
+            result = message.secureMessage.senderRatchetKey
+        }
+        
+        return result
+    }
 
     /// Initializes a `MessageContainer` struct from a decoder.
     ///

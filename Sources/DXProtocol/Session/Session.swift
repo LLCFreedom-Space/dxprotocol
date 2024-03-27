@@ -485,6 +485,11 @@ extension Session {
         self.state.archived = true
         self.previousSessionStates.insert(self.state, at: 0)
     }
+    
+    /// Returns public key of the current sender ratchet key pair
+    public func currentSenderRatchetKey() -> PublicKey {
+        self.state.senderChain.ratchetKeyPair.publicKey
+    }
 
     /// Makes the specified state the currently active state of the session.
     /// This method must be used to promote newly created states to existing sessions
